@@ -15,6 +15,9 @@ const (
 	OptPopup                   // Popup behavior
 	OptClosed                  // Start closed/collapsed
 	OptExpanded                // Start expanded (default for headers)
+	OptAlwaysOnTop             // Window: always render on top of other windows
+	OptSnapToEdge              // Window: snap to screen edges and other windows when dragging
+	OptSnapTarget              // Window: can be snapped TO by other windows
 )
 
 // Response flags returned by controls

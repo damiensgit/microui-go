@@ -37,6 +37,9 @@ type Config struct {
 	CommandBuf    int
 	InputChanSize int
 	DrawFrame     func(ui *UI, rect types.Rect, colorID int) // Custom frame drawing callback
+	ScreenWidth   int                                        // Screen width for snap-to-edge (0 = disabled)
+	ScreenHeight  int                                        // Screen height for snap-to-edge (0 = disabled)
+	SnapThreshold int                                        // Distance in pixels to trigger snap (default 20)
 }
 
 // UI is the main context for immediate-mode UI.
@@ -86,9 +89,15 @@ type UI struct {
 	// Window interaction state
 	dragID           ID         // ID of container being dragged
 	dragOffset       types.Vec2 // Offset from container origin to drag start point
+	dragContainer    *Container // Container being dragged (for snap-to-edge)
 	resizeID         ID         // ID of container being resized
 	resizeStartRect  types.Rect // Window rect when resize started
 	resizeStartMouse types.Vec2 // Mouse position when resize started
+
+	// Screen bounds for snap-to-edge
+	screenWidth   int
+	screenHeight  int
+	snapThreshold int
 
 	// Custom drawing callback
 	drawFrame func(ui *UI, rect types.Rect, colorID int)
@@ -152,7 +161,144 @@ func New(cfg Config) *UI {
 		ui.drawFrame = defaultDrawFrame
 	}
 
+	// Initialize screen bounds for snap-to-edge
+	ui.screenWidth = cfg.ScreenWidth
+	ui.screenHeight = cfg.ScreenHeight
+	ui.snapThreshold = cfg.SnapThreshold
+	if ui.snapThreshold == 0 {
+		ui.snapThreshold = 20 // Default snap threshold
+	}
+
 	return ui
+}
+
+// SetScreenSize updates the screen dimensions for snap-to-edge functionality.
+func (u *UI) SetScreenSize(width, height int) {
+	u.screenWidth = width
+	u.screenHeight = height
+}
+
+// applySnapToEdge snaps a container to screen edges and other snap-target windows.
+// Windows with OptSnapToEdge snap to windows with OptSnapTarget and to screen edges.
+func (u *UI) applySnapToEdge(cnt *Container) {
+	threshold := u.snapThreshold
+	snappedX := false
+	snappedY := false
+
+	// Snap to windows marked as snap targets (uses containers map which persists across frames)
+	for _, other := range u.containers {
+		if other == cnt || !other.open {
+			continue
+		}
+
+		// Only snap to windows marked as snap targets
+		if other.opt&OptSnapTarget == 0 {
+			continue
+		}
+
+		// Snap to right edge of other window (our left aligns with their right)
+		if !snappedX && abs(cnt.rect.X-(other.rect.X+other.rect.W)) < threshold {
+			if cnt.rect.Y < other.rect.Y+other.rect.H && cnt.rect.Y+cnt.rect.H > other.rect.Y {
+				cnt.rect.X = other.rect.X + other.rect.W
+				snappedX = true
+			}
+		}
+
+		// Snap to left edge of other window (our right aligns with their left)
+		if !snappedX && abs((cnt.rect.X+cnt.rect.W)-other.rect.X) < threshold {
+			if cnt.rect.Y < other.rect.Y+other.rect.H && cnt.rect.Y+cnt.rect.H > other.rect.Y {
+				cnt.rect.X = other.rect.X - cnt.rect.W
+				snappedX = true
+			}
+		}
+
+		// Snap to bottom edge of other window (our top aligns with their bottom)
+		if !snappedY && abs(cnt.rect.Y-(other.rect.Y+other.rect.H)) < threshold {
+			if cnt.rect.X < other.rect.X+other.rect.W && cnt.rect.X+cnt.rect.W > other.rect.X {
+				cnt.rect.Y = other.rect.Y + other.rect.H
+				snappedY = true
+			}
+		}
+
+		// Snap to top edge of other window (our bottom aligns with their top)
+		if !snappedY && abs((cnt.rect.Y+cnt.rect.H)-other.rect.Y) < threshold {
+			if cnt.rect.X < other.rect.X+other.rect.W && cnt.rect.X+cnt.rect.W > other.rect.X {
+				cnt.rect.Y = other.rect.Y - cnt.rect.H
+				snappedY = true
+			}
+		}
+
+		// Align left edges
+		if !snappedX && abs(cnt.rect.X-other.rect.X) < threshold {
+			if cnt.rect.Y < other.rect.Y+other.rect.H+threshold && cnt.rect.Y+cnt.rect.H > other.rect.Y-threshold {
+				cnt.rect.X = other.rect.X
+				snappedX = true
+			}
+		}
+
+		// Align right edges
+		if !snappedX && abs((cnt.rect.X+cnt.rect.W)-(other.rect.X+other.rect.W)) < threshold {
+			if cnt.rect.Y < other.rect.Y+other.rect.H+threshold && cnt.rect.Y+cnt.rect.H > other.rect.Y-threshold {
+				cnt.rect.X = other.rect.X + other.rect.W - cnt.rect.W
+				snappedX = true
+			}
+		}
+
+		// Align top edges
+		if !snappedY && abs(cnt.rect.Y-other.rect.Y) < threshold {
+			if cnt.rect.X < other.rect.X+other.rect.W+threshold && cnt.rect.X+cnt.rect.W > other.rect.X-threshold {
+				cnt.rect.Y = other.rect.Y
+				snappedY = true
+			}
+		}
+
+		// Align bottom edges
+		if !snappedY && abs((cnt.rect.Y+cnt.rect.H)-(other.rect.Y+other.rect.H)) < threshold {
+			if cnt.rect.X < other.rect.X+other.rect.W+threshold && cnt.rect.X+cnt.rect.W > other.rect.X-threshold {
+				cnt.rect.Y = other.rect.Y + other.rect.H - cnt.rect.H
+				snappedY = true
+			}
+		}
+	}
+
+	// Snap to screen edges (if screen size is set and not already snapped)
+	if u.screenWidth == 0 || u.screenHeight == 0 {
+		return
+	}
+
+	// Snap to left edge
+	if !snappedX && cnt.rect.X < threshold {
+		cnt.rect.X = 0
+	}
+
+	// Snap to top edge
+	if !snappedY && cnt.rect.Y < threshold {
+		cnt.rect.Y = 0
+	}
+
+	// Snap to right edge
+	if !snappedX {
+		rightEdge := u.screenWidth - cnt.rect.W
+		if cnt.rect.X > rightEdge-threshold && cnt.rect.X < rightEdge+threshold {
+			cnt.rect.X = rightEdge
+		}
+	}
+
+	// Snap to bottom edge
+	if !snappedY {
+		bottomEdge := u.screenHeight - cnt.rect.H
+		if cnt.rect.Y > bottomEdge-threshold && cnt.rect.Y < bottomEdge+threshold {
+			cnt.rect.Y = bottomEdge
+		}
+	}
+}
+
+// abs returns the absolute value of an integer.
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // SetDebug enables debug logging with the given callback.
@@ -170,6 +316,7 @@ func (u *UI) BeginFrame() {
 
 	if !u.input.MouseDown[int(MouseLeft)] {
 		u.dragID = 0
+		u.dragContainer = nil
 		u.resizeID = 0
 		u.resizeStartRect = types.Rect{}
 		u.resizeStartMouse = types.Vec2{}
@@ -323,6 +470,30 @@ func (u *UI) MouseDelta() types.Vec2 {
 	return u.input.MouseDelta
 }
 
+// IsCapturingMouse returns true if the UI is capturing mouse input
+// (window drag, window resize, scrollbar drag, or any control interaction in progress).
+// Use this to avoid processing custom mouse input while UI is handling the mouse.
+func (u *UI) IsCapturingMouse() bool {
+	// Window drag or resize
+	if u.dragID != 0 || u.resizeID != 0 {
+		return true
+	}
+	// Any control has focus with mouse down (e.g., scrollbar drag, slider drag)
+	if u.input.Focus != 0 && u.input.MouseDown[int(MouseLeft)] {
+		return true
+	}
+	return false
+}
+
+// IsHoverRoot returns true if the given container name is the current hover root.
+// Use this to check if a window should process mouse input.
+func (u *UI) IsHoverRoot(name string) bool {
+	if u.hoverRoot == nil {
+		return false
+	}
+	return u.hoverRoot.name == name
+}
+
 // Render executes all queued commands using the given renderer.
 // Commands are rendered in z-order by container (lowest zindex first).
 func (u *UI) Render(renderer interface{}) {
@@ -369,6 +540,12 @@ func (u *UI) Render(renderer interface{}) {
 	sorted := make([]*Container, len(u.rootList))
 	copy(sorted, u.rootList)
 	sort.Slice(sorted, func(i, j int) bool {
+		// Always-on-top windows render last (on top)
+		iOnTop := sorted[i].opt&OptAlwaysOnTop != 0
+		jOnTop := sorted[j].opt&OptAlwaysOnTop != 0
+		if iOnTop != jOnTop {
+			return !iOnTop // non-always-on-top first
+		}
 		return sorted[i].zindex < sorted[j].zindex
 	})
 
@@ -378,11 +555,18 @@ func (u *UI) Render(renderer interface{}) {
 }
 
 // RootContainersSorted returns all root containers sorted by z-index (back to front).
+// Always-on-top windows are sorted after regular windows.
 // This is useful for custom rendering with per-container effects like shadows.
 func (u *UI) RootContainersSorted() []*Container {
 	sorted := make([]*Container, len(u.rootList))
 	copy(sorted, u.rootList)
 	sort.Slice(sorted, func(i, j int) bool {
+		// Always-on-top windows render last (on top)
+		iOnTop := sorted[i].opt&OptAlwaysOnTop != 0
+		jOnTop := sorted[j].opt&OptAlwaysOnTop != 0
+		if iOnTop != jOnTop {
+			return !iOnTop // non-always-on-top first
+		}
 		return sorted[i].zindex < sorted[j].zindex
 	})
 	return sorted
@@ -477,6 +661,42 @@ func (u *UI) ButtonOpt(label string, icon int, opt int) bool {
 	u.UpdateControlOpt(id, rect, opt)
 	clicked := u.input.MousePressed[int(MouseLeft)] && u.input.Focus == id
 	u.DrawControlFrame(id, rect, ColorButton, opt)
+	if label != "" {
+		u.DrawControlText(label, rect, ColorText, opt|OptAlignCenter)
+	}
+	if icon != 0 {
+		u.DrawIcon(icon, rect, u.style.Colors.Text)
+	}
+	return clicked
+}
+
+// ToggleButton adds a toggle button that stays selected.
+// Returns true if clicked (state should be toggled by caller).
+func (u *UI) ToggleButton(label string, selected bool) bool {
+	return u.ToggleButtonOpt(label, 0, selected, 0)
+}
+
+// ToggleButtonOpt adds a toggle button with icon and options.
+// The selected parameter indicates if the button is currently active/pressed.
+// Returns true if clicked (state should be toggled by caller).
+func (u *UI) ToggleButtonOpt(label string, icon int, selected bool, opt int) bool {
+	var id ID
+	if label != "" {
+		id = u.getID(label)
+	} else {
+		id = u.getIDFromInt(icon)
+	}
+	rect := u.LayoutNext()
+	u.UpdateControlOpt(id, rect, opt)
+	clicked := u.input.MousePressed[int(MouseLeft)] && u.input.Focus == id
+
+	// Draw as pressed/focused if selected
+	colorID := ColorButton
+	if selected {
+		colorID = ColorButtonFocus
+	}
+	u.DrawControlFrame(id, rect, colorID, opt)
+
 	if label != "" {
 		u.DrawControlText(label, rect, ColorText, opt|OptAlignCenter)
 	}
@@ -587,6 +807,7 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 		if u.input.Focus == titleID && u.input.MouseDown[int(MouseLeft)] {
 			if u.input.MousePressed[int(MouseLeft)] {
 				u.dragID = titleID
+				u.dragContainer = cnt
 				u.dragOffset = types.Vec2{
 					X: u.input.MousePos.X - cnt.rect.X,
 					Y: u.input.MousePos.Y - cnt.rect.Y,
@@ -601,6 +822,11 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 				}
 				cnt.rect.X = newX
 				cnt.rect.Y = newY
+
+				// Apply real-time snapping while dragging
+				if opt&OptSnapToEdge != 0 {
+					u.applySnapToEdge(cnt)
+				}
 			}
 		}
 
@@ -820,19 +1046,52 @@ func (u *UI) beginRootContainer(cnt *Container) {
 		return
 	}
 
-	// Track hover root: if mouse is inside and zindex >= current candidate, update
+	// Track hover root: if mouse is inside, check if this container should receive input
 	mouseInRect := u.input.MousePos.X >= cnt.rect.X &&
 		u.input.MousePos.X < cnt.rect.X+cnt.rect.W &&
 		u.input.MousePos.Y >= cnt.rect.Y &&
 		u.input.MousePos.Y < cnt.rect.Y+cnt.rect.H
 
-	if mouseInRect && (u.nextHoverRoot == nil || cnt.zindex >= u.nextHoverRoot.zindex) {
-		u.nextHoverRoot = cnt
+	if mouseInRect {
+		// Determine if this container should be the hover root
+		// Always-on-top windows have input priority over regular windows
+		shouldBeHoverRoot := false
+		if u.nextHoverRoot == nil {
+			shouldBeHoverRoot = true
+		} else {
+			cntOnTop := cnt.opt&OptAlwaysOnTop != 0
+			hoverOnTop := u.nextHoverRoot.opt&OptAlwaysOnTop != 0
+			if cntOnTop && !hoverOnTop {
+				// Always-on-top wins over regular window
+				shouldBeHoverRoot = true
+			} else if cntOnTop == hoverOnTop {
+				// Same category, use zindex
+				shouldBeHoverRoot = cnt.zindex >= u.nextHoverRoot.zindex
+			}
+			// If hover is on-top and cnt is not, don't change
+		}
+		if shouldBeHoverRoot {
+			u.nextHoverRoot = cnt
+		}
 	}
 
-	// Track scroll target: container under mouse for scroll wheel routing
-	if mouseInRect && (u.scrollTarget == nil || cnt.zindex >= u.scrollTarget.zindex) {
-		u.scrollTarget = cnt
+	// Track scroll target: same logic as hover root
+	if mouseInRect {
+		shouldBeScrollTarget := false
+		if u.scrollTarget == nil {
+			shouldBeScrollTarget = true
+		} else {
+			cntOnTop := cnt.opt&OptAlwaysOnTop != 0
+			scrollOnTop := u.scrollTarget.opt&OptAlwaysOnTop != 0
+			if cntOnTop && !scrollOnTop {
+				shouldBeScrollTarget = true
+			} else if cntOnTop == scrollOnTop {
+				shouldBeScrollTarget = cnt.zindex >= u.scrollTarget.zindex
+			}
+		}
+		if shouldBeScrollTarget {
+			u.scrollTarget = cnt
+		}
 	}
 }
 

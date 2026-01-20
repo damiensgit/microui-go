@@ -28,9 +28,9 @@ go.work
 .DS_Store
 Thumbs.db
 
-# WASM
-*.wasm
-wasm_exec.js
+# WASM - included for GitHub Pages demo
+# *.wasm
+# wasm_exec.js
 
 # Logs
 debug.log

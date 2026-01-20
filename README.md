@@ -1,7 +1,7 @@
 # microui-go
 A Go port of [rxi/microui](https://github.com/rxi/microui) — a tiny, portable, immediate-mode UI library.
 
-**[Live Demo](https://damiensgit.github.io/microui-go/)** — try it in your browser
+**[Live Demo](https://damiensgit.github.io/microui-go/examples/wasm-demo/)** — try it in your browser
 
 ![demo](doc/demo.gif)
 

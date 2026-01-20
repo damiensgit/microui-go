@@ -3,7 +3,9 @@ A Go port of [rxi/microui](https://github.com/rxi/microui) — a tiny, portable,
 
 **[Live Demo](https://damiensgit.github.io/microui-go/examples/wasm-demo/)** — try it in your browser
 
-![demo](doc/demo.gif)
+| GUI (Ebiten) | TUI (Bubble Tea) |
+|:---:|:---:|
+| ![GUI demo](docs/gui-demo.webp) | ![TUI demo](docs/tui-demo.webp) |
 
 ## Features
 * Faithful port of the original C implementation (~2500 sloc of Go)

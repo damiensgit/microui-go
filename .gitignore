@@ -1,0 +1,43 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+microui-test
+
+# Test binary
+*.test
+
+# Output
+/bin/
+/dist/
+
+# Go workspace
+/vendor/
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WASM
+*.wasm
+wasm_exec.js
+
+# Logs
+debug.log
+
+# LLMs
+.claude/
+
+# Demo binaries
+examples/bubbletea-demo/bubbletea-demo*
+examples/ebiten-demo/ebiten-demo*

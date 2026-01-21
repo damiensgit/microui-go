@@ -249,7 +249,7 @@ func TestTUIScrollbar_VerticalAppearsImmediately(t *testing.T) {
 	// Calculate expected body dimensions for a 20x12 window
 	// TUI: titleHeight=1, borderWidth=1
 	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2  // 20 - 2 = 18
+	bodyW := windowW - style.BorderWidth*2                   // 20 - 2 = 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 12 - 1 - 1 = 10
 
 	// Content that just overflows: 11 rows in 10-row body
@@ -294,7 +294,7 @@ func TestTUIScrollbar_HorizontalOnly(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 8
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 6
 
 	// Content that:
@@ -345,14 +345,14 @@ func TestTUIScrollbar_VerticalTriggersHorizontal(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2  // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
 
 	// Content that:
 	// - Is taller than body (needs vertical scrollbar)
 	// - Fits in body width, but NOT when vertical scrollbar takes 1 column
-	contentW := bodyW      // 18 - fits exactly, but vert scrollbar will make it overflow
-	contentH := bodyH + 5  // 15 - needs vertical scrollbar
+	contentW := bodyW     // 18 - fits exactly, but vert scrollbar will make it overflow
+	contentH := bodyH + 5 // 15 - needs vertical scrollbar
 
 	// Frame 1
 	ui.BeginFrame()
@@ -400,8 +400,8 @@ func TestTUIScrollbar_AppearsWhenWindowShrinks(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	// Start with window large enough to fit content
-	largeWindowH := 15  // Body will be 15 - 1 (title) - 1 (border) = 13
-	smallWindowH := 12  // Body will be 12 - 1 - 1 = 10
+	largeWindowH := 15 // Body will be 15 - 1 (title) - 1 (border) = 13
+	smallWindowH := 12 // Body will be 12 - 1 - 1 = 10
 
 	windowW := 20
 	bodyW := windowW - style.BorderWidth*2 // 18
@@ -467,7 +467,7 @@ func TestTUIScrollbar_MaxScrollAccountsForBothScrollbars(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
 
 	// Content larger than body in BOTH dimensions (needs both scrollbars)
@@ -556,7 +556,7 @@ func TestTUIScrollbar_NoScrollbarsWhenContentFits(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
 
 	// Content that fits - account for spacing AND padding!
@@ -565,7 +565,7 @@ func TestTUIScrollbar_NoScrollbarsWhenContentFits(t *testing.T) {
 	// So content fits when: contentSize.Y <= bodyH - padding.X*2 = 10 - 2 = 8
 	// With N rows: 2N-1 <= 8 → N <= 4.5 → N = 4 rows max
 	// Also account for padding (Padding.X=1 on each side for content width)
-	contentRows := 4  // 4 rows = 4 + 3 spacing = 7 cells, 7 + 2 padding = 9 <= 10
+	contentRows := 4                          // 4 rows = 4 + 3 spacing = 7 cells, 7 + 2 padding = 9 <= 10
 	contentW := bodyW - style.Padding.X*2 - 2 // Leave some margin
 
 	// Frame 1
@@ -611,7 +611,7 @@ func TestTUIScrollbar_VerticalOnlyNoBottomClip(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
 
 	// Content that overflows vertically but fits horizontally
@@ -675,7 +675,7 @@ func TestTUIScrollbar_VerticalOnlyAlmostFillsWidth(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
 
 	// Content that overflows vertically but fits horizontally EVEN with vertical scrollbar
@@ -804,7 +804,7 @@ func TestTUIScrollbar_MutualDependencyCorrect(t *testing.T) {
 	ui := New(Config{Style: style})
 
 	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                    // 18
+	bodyW := windowW - style.BorderWidth*2                   // 18
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
 
 	// Content that overflows vertically AND barely overflows horizontally after
@@ -868,7 +868,7 @@ func TestTUIScrollbar_BoxTestScenario(t *testing.T) {
 
 	// Calculate body dimensions
 	// TUI: titleHeight=1, borderWidth=1, scrollbarSize=1
-	bodyW := windowW - style.BorderWidth*2                    // 22 - 2 = 20
+	bodyW := windowW - style.BorderWidth*2                   // 22 - 2 = 20
 	bodyH := windowH - style.TitleHeight - style.BorderWidth // 7 - 1 - 1 = 5
 
 	t.Logf("Window: %dx%d, Body: %dx%d", windowW, windowH, bodyW, bodyH)

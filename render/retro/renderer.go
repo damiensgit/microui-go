@@ -96,10 +96,10 @@ func (r *Renderer) DrawBox(rect types.Rect, c color.Color) {
 		px = 2
 	}
 	// Draw border using logical pixel thickness
-	r.fillRect(rect.X, rect.Y, rect.W, px, c)                   // Top
-	r.fillRect(rect.X, rect.Y+rect.H-px, rect.W, px, c)         // Bottom
-	r.fillRect(rect.X, rect.Y, px, rect.H, c)                   // Left
-	r.fillRect(rect.X+rect.W-px, rect.Y, px, rect.H, c)         // Right
+	r.fillRect(rect.X, rect.Y, rect.W, px, c)           // Top
+	r.fillRect(rect.X, rect.Y+rect.H-px, rect.W, px, c) // Bottom
+	r.fillRect(rect.X, rect.Y, px, rect.H, c)           // Left
+	r.fillRect(rect.X+rect.W-px, rect.Y, px, rect.H, c) // Right
 }
 
 // DrawText draws text at the specified position with clipping.
@@ -194,11 +194,15 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		// . . X . X . .
 		// . X . . . X .
 		// . . . . . . .
-		px(1, 1); px(5, 1)
-		px(2, 2); px(4, 2)
+		px(1, 1)
+		px(5, 1)
+		px(2, 2)
+		px(4, 2)
 		px(3, 3)
-		px(2, 4); px(4, 4)
-		px(1, 5); px(5, 5)
+		px(2, 4)
+		px(4, 4)
+		px(1, 5)
+		px(5, 5)
 
 	case microui.IconCheck:
 		// Thicker checkmark pattern:
@@ -209,10 +213,16 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		// . X X X . . .
 		// . . X . . . .
 		// . . . . . . .
-		px(5, 1); px(6, 1)
-		px(4, 2); px(5, 2)
-		px(1, 3); px(3, 3); px(4, 3)
-		px(1, 4); px(2, 4); px(3, 4)
+		px(5, 1)
+		px(6, 1)
+		px(4, 2)
+		px(5, 2)
+		px(1, 3)
+		px(3, 3)
+		px(4, 3)
+		px(1, 4)
+		px(2, 4)
+		px(3, 4)
 		px(2, 5)
 
 	case microui.IconCollapsed:
@@ -225,9 +235,13 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		// . X . . . . .
 		// . . . . . . .
 		px(1, 1)
-		px(1, 2); px(2, 2)
-		px(1, 3); px(2, 3); px(3, 3)
-		px(1, 4); px(2, 4)
+		px(1, 2)
+		px(2, 2)
+		px(1, 3)
+		px(2, 3)
+		px(3, 3)
+		px(1, 4)
+		px(2, 4)
 		px(1, 5)
 
 	case microui.IconExpanded:
@@ -239,8 +253,14 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		// . . . . . . .
 		// . . . . . . .
 		// . . . . . . .
-		px(1, 1); px(2, 1); px(3, 1); px(4, 1); px(5, 1)
-		px(2, 2); px(3, 2); px(4, 2)
+		px(1, 1)
+		px(2, 1)
+		px(3, 1)
+		px(4, 1)
+		px(5, 1)
+		px(2, 2)
+		px(3, 2)
+		px(4, 2)
 		px(3, 3)
 
 	case microui.IconResize:
@@ -253,8 +273,11 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		// . . . . . . .
 		// . X . X . X .
 		px(5, 2)
-		px(3, 4); px(5, 4)
-		px(1, 6); px(3, 6); px(5, 6)
+		px(3, 4)
+		px(5, 4)
+		px(1, 6)
+		px(3, 6)
+		px(5, 6)
 
 	default:
 		// Unknown icon - draw a filled box for visibility
@@ -385,30 +408,14 @@ func (r *Renderer) DrawFlatRect(rect types.Rect, colors SkeuoColor, sunken bool)
 	r.fillRect(x+2, y+2, w-4, h-4, fill)
 }
 
-// fillRoundedRect draws a filled rectangle with corner notches (1px corner radius).
-func (r *Renderer) fillRoundedRect(x, y, w, h, radius int, c color.Color) {
-	if radius <= 0 {
-		r.fillRect(x, y, w, h, c)
-		return
-	}
-
-	// Fill main body (excluding corners)
-	// Top row (excluding corner pixels)
-	r.fillRect(x+radius, y, w-radius*2, radius, c)
-	// Middle rows (full width)
-	r.fillRect(x, y+radius, w, h-radius*2, c)
-	// Bottom row (excluding corner pixels)
-	r.fillRect(x+radius, y+h-radius, w-radius*2, radius, c)
-}
-
 // drawRoundedBorder draws a 1px border with corner notches.
 func (r *Renderer) drawRoundedBorder(x, y, w, h, radius int, c color.Color) {
 	if radius <= 0 {
 		// Simple box border
-		r.fillRect(x, y, w, 1, c)           // Top
-		r.fillRect(x, y+h-1, w, 1, c)       // Bottom
-		r.fillRect(x, y, 1, h, c)           // Left
-		r.fillRect(x+w-1, y, 1, h, c)       // Right
+		r.fillRect(x, y, w, 1, c)     // Top
+		r.fillRect(x, y+h-1, w, 1, c) // Bottom
+		r.fillRect(x, y, 1, h, c)     // Left
+		r.fillRect(x+w-1, y, 1, h, c) // Right
 		return
 	}
 
@@ -596,9 +603,9 @@ func (r *Renderer) drawFrameFlat(ui *microui.UI, info microui.FrameInfo) {
 func (r *Renderer) drawPixelBorderUI(ui *microui.UI, x, y, w, h, px int, c color.Color) {
 	if w <= 0 || h <= 0 || w <= px*2 || h <= px*2 {
 		// Too small for corner notch, draw simple rect border
-		ui.DrawRect(types.Rect{X: x, Y: y, W: w, H: px}, c)             // Top
-		ui.DrawRect(types.Rect{X: x, Y: y + h - px, W: w, H: px}, c)    // Bottom
-		ui.DrawRect(types.Rect{X: x, Y: y + px, W: px, H: h - px*2}, c) // Left
+		ui.DrawRect(types.Rect{X: x, Y: y, W: w, H: px}, c)                      // Top
+		ui.DrawRect(types.Rect{X: x, Y: y + h - px, W: w, H: px}, c)             // Bottom
+		ui.DrawRect(types.Rect{X: x, Y: y + px, W: px, H: h - px*2}, c)          // Left
 		ui.DrawRect(types.Rect{X: x + w - px, Y: y + px, W: px, H: h - px*2}, c) // Right
 		return
 	}
@@ -702,9 +709,9 @@ func (r *Renderer) drawRoundedBorderUI(ui *microui.UI, x, y, w, h, radius int, c
 
 	if radius <= 0 {
 		// Simple box border
-		ui.DrawRect(types.Rect{X: x, Y: y, W: w, H: 1}, c)         // Top
-		ui.DrawRect(types.Rect{X: x, Y: y + h - 1, W: w, H: 1}, c) // Bottom
-		ui.DrawRect(types.Rect{X: x, Y: y + 1, W: 1, H: h - 2}, c) // Left (excluding corners)
+		ui.DrawRect(types.Rect{X: x, Y: y, W: w, H: 1}, c)                 // Top
+		ui.DrawRect(types.Rect{X: x, Y: y + h - 1, W: w, H: 1}, c)         // Bottom
+		ui.DrawRect(types.Rect{X: x, Y: y + 1, W: 1, H: h - 2}, c)         // Left (excluding corners)
 		ui.DrawRect(types.Rect{X: x + w - 1, Y: y + 1, W: 1, H: h - 2}, c) // Right (excluding corners)
 		return
 	}
@@ -784,11 +791,6 @@ func (r *Renderer) fillRect(x, y, w, h int, c color.Color) {
 	vector.DrawFilledRect(r.target, float32(x), float32(y), float32(w), float32(h), c, false)
 }
 
-// drawLine draws a line.
-func (r *Renderer) drawLine(x1, y1, x2, y2 float32, c color.Color) {
-	vector.StrokeLine(r.target, x1, y1, x2, y2, 1, c, false)
-}
-
 // fontAdapter wraps Font to implement types.Font.
 type fontAdapter struct {
 	font *Font
@@ -810,11 +812,4 @@ func (r *Renderer) Render(ui *microui.UI) {
 // GetClipRect returns the current clip rectangle as an image.Rectangle.
 func (r *Renderer) GetClipRect() image.Rectangle {
 	return image.Rect(r.clipRect.X, r.clipRect.Y, r.clipRect.X+r.clipRect.W, r.clipRect.Y+r.clipRect.H)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

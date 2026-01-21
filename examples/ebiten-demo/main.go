@@ -204,173 +204,173 @@ func (g *Game) Update() error {
 	if g.demoWindowOpen {
 		if g.ui.BeginWindowOpt("Demo Window", types.Rect{X: 10, Y: 10, W: 280, H: 420}, microui.OptClosed) {
 			// Enforce minimum size like C demo
-		win := g.ui.GetCurrentContainer()
-		if win != nil {
-			r := win.Rect()
-			if r.W < 240 {
-				r.W = 240
-			}
-			if r.H < 300 {
-				r.H = 300
-			}
-			win.SetRect(r)
-		}
-
-		// Window Info header (collapsed by default)
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		if g.ui.Header("Window Info") {
 			win := g.ui.GetCurrentContainer()
-			g.ui.LayoutRow(2, []int{54, -1}, 0)
-			g.ui.Label("Position:")
 			if win != nil {
 				r := win.Rect()
-				g.ui.Label(fmt.Sprintf("%d, %d", r.X, r.Y))
-				g.ui.Label("Size:")
-				g.ui.Label(fmt.Sprintf("%d, %d", r.W, r.H))
-			}
-		}
-
-		// Test Buttons header (expanded by default)
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		if g.ui.HeaderEx("Test Buttons", microui.OptExpanded) {
-			g.ui.LayoutRow(3, []int{86, -110, -1}, 0)
-			g.ui.Label("Test buttons 1:")
-			if g.ui.Button("Button 1") {
-				g.writeLog("Pressed button 1")
-			}
-			if g.ui.Button("Button 2") {
-				g.writeLog("Pressed button 2")
-			}
-			g.ui.Label("Test buttons 2:")
-			if g.ui.Button("Button 3") {
-				g.writeLog("Pressed button 3")
-			}
-			if g.ui.Button("Popup") {
-				g.ui.OpenPopup("Test Popup")
-			}
-			if g.ui.BeginPopup("Test Popup") {
-				g.ui.Button("Hello")
-				g.ui.Button("World")
-				g.ui.EndPopup()
-			}
-		}
-
-		// Tree and Text header (expanded by default)
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		if g.ui.HeaderEx("Tree and Text", microui.OptExpanded) {
-			g.ui.LayoutRow(2, []int{140, -1}, 0)
-
-			// Left column - tree
-			g.ui.LayoutBeginColumn()
-			if g.ui.BeginTreeNode("Test 1") {
-				if g.ui.BeginTreeNode("Test 1a") {
-					g.ui.Label("Hello")
-					g.ui.Label("world")
-					g.ui.EndTreeNode()
+				if r.W < 240 {
+					r.W = 240
 				}
-				if g.ui.BeginTreeNode("Test 1b") {
-					if g.ui.Button("Button 1") {
-						g.writeLog("Pressed button 1")
-					}
-					if g.ui.Button("Button 2") {
-						g.writeLog("Pressed button 2")
-					}
-					g.ui.EndTreeNode()
+				if r.H < 300 {
+					r.H = 300
 				}
-				g.ui.EndTreeNode()
+				win.SetRect(r)
 			}
-			if g.ui.BeginTreeNode("Test 2") {
-				g.ui.LayoutRow(2, []int{54, 54}, 0)
+
+			// Window Info header (collapsed by default)
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			if g.ui.Header("Window Info") {
+				win := g.ui.GetCurrentContainer()
+				g.ui.LayoutRow(2, []int{54, -1}, 0)
+				g.ui.Label("Position:")
+				if win != nil {
+					r := win.Rect()
+					g.ui.Label(fmt.Sprintf("%d, %d", r.X, r.Y))
+					g.ui.Label("Size:")
+					g.ui.Label(fmt.Sprintf("%d, %d", r.W, r.H))
+				}
+			}
+
+			// Test Buttons header (expanded by default)
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			if g.ui.HeaderEx("Test Buttons", microui.OptExpanded) {
+				g.ui.LayoutRow(3, []int{86, -110, -1}, 0)
+				g.ui.Label("Test buttons 1:")
+				if g.ui.Button("Button 1") {
+					g.writeLog("Pressed button 1")
+				}
+				if g.ui.Button("Button 2") {
+					g.writeLog("Pressed button 2")
+				}
+				g.ui.Label("Test buttons 2:")
 				if g.ui.Button("Button 3") {
 					g.writeLog("Pressed button 3")
 				}
-				if g.ui.Button("Button 4") {
-					g.writeLog("Pressed button 4")
+				if g.ui.Button("Popup") {
+					g.ui.OpenPopup("Test Popup")
 				}
-				if g.ui.Button("Button 5") {
-					g.writeLog("Pressed button 5")
+				if g.ui.BeginPopup("Test Popup") {
+					g.ui.Button("Hello")
+					g.ui.Button("World")
+					g.ui.EndPopup()
 				}
-				if g.ui.Button("Button 6") {
-					g.writeLog("Pressed button 6")
-				}
-				g.ui.EndTreeNode()
 			}
-			if g.ui.BeginTreeNode("Test 3") {
-				g.ui.Checkbox("Checkbox 1", &g.checks[0])
-				g.ui.Checkbox("Checkbox 2", &g.checks[1])
-				g.ui.Checkbox("Checkbox 3", &g.checks[2])
-				g.ui.EndTreeNode()
-			}
-			g.ui.LayoutEndColumn()
 
-			// Right column - text
-			g.ui.LayoutBeginColumn()
+			// Tree and Text header (expanded by default)
 			g.ui.LayoutRow(1, []int{-1}, 0)
-			g.ui.Text("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus ipsum, eu varius magna felis a nulla.")
-			g.ui.LayoutEndColumn()
-		}
+			if g.ui.HeaderEx("Tree and Text", microui.OptExpanded) {
+				g.ui.LayoutRow(2, []int{140, -1}, 0)
 
-		// Background Color header (expanded by default)
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		if g.ui.HeaderEx("Background Color", microui.OptExpanded) {
-			g.ui.LayoutRow(2, []int{-78, -1}, 74)
+				// Left column - tree
+				g.ui.LayoutBeginColumn()
+				if g.ui.BeginTreeNode("Test 1") {
+					if g.ui.BeginTreeNode("Test 1a") {
+						g.ui.Label("Hello")
+						g.ui.Label("world")
+						g.ui.EndTreeNode()
+					}
+					if g.ui.BeginTreeNode("Test 1b") {
+						if g.ui.Button("Button 1") {
+							g.writeLog("Pressed button 1")
+						}
+						if g.ui.Button("Button 2") {
+							g.writeLog("Pressed button 2")
+						}
+						g.ui.EndTreeNode()
+					}
+					g.ui.EndTreeNode()
+				}
+				if g.ui.BeginTreeNode("Test 2") {
+					g.ui.LayoutRow(2, []int{54, 54}, 0)
+					if g.ui.Button("Button 3") {
+						g.writeLog("Pressed button 3")
+					}
+					if g.ui.Button("Button 4") {
+						g.writeLog("Pressed button 4")
+					}
+					if g.ui.Button("Button 5") {
+						g.writeLog("Pressed button 5")
+					}
+					if g.ui.Button("Button 6") {
+						g.writeLog("Pressed button 6")
+					}
+					g.ui.EndTreeNode()
+				}
+				if g.ui.BeginTreeNode("Test 3") {
+					g.ui.Checkbox("Checkbox 1", &g.checks[0])
+					g.ui.Checkbox("Checkbox 2", &g.checks[1])
+					g.ui.Checkbox("Checkbox 3", &g.checks[2])
+					g.ui.EndTreeNode()
+				}
+				g.ui.LayoutEndColumn()
 
-			// Left column - sliders
-			g.ui.LayoutBeginColumn()
-			g.ui.LayoutRow(2, []int{46, -1}, 0)
-			g.ui.Label("Red:")
-			g.ui.Slider(&g.bgColor[0], 0, 255)
-			g.ui.Label("Green:")
-			g.ui.Slider(&g.bgColor[1], 0, 255)
-			g.ui.Label("Blue:")
-			g.ui.Slider(&g.bgColor[2], 0, 255)
-			g.ui.LayoutEndColumn()
-
-			// Right column - color preview
-			rect := g.ui.LayoutNext()
-			g.ui.DrawRect(rect, color.RGBA{
-				R: uint8(g.bgColor[0]),
-				G: uint8(g.bgColor[1]),
-				B: uint8(g.bgColor[2]),
-				A: 255,
-			})
-			hexStr := fmt.Sprintf("#%02X%02X%02X", int(g.bgColor[0]), int(g.bgColor[1]), int(g.bgColor[2]))
-			g.ui.DrawControlText(hexStr, rect, microui.ColorText, microui.OptAlignCenter)
-
-			// Metaballs controls
-			g.ui.LayoutRow(2, []int{120, -1}, 0)
-			g.ui.Checkbox("Metaballs", &g.enableMetaballs)
-			g.ui.Label("")
-
-			g.ui.LayoutRow(2, []int{70, -1}, 0)
-			g.ui.Label("Resolution:")
-			oldRes := g.metaResolution
-			g.ui.SliderOpt(&g.metaResolution, 1, 8, 1, "%.0f", 0)
-
-			g.ui.Label("Balls:")
-			oldBalls := g.metaBallCount
-			g.ui.SliderOpt(&g.metaBallCount, 2, 12, 1, "%.0f", 0)
-
-			g.ui.Label("Speed:")
-			g.ui.SliderOpt(&g.metaSpeed, 0.1, 3.0, 0.1, "%.1f", 0)
-
-			g.ui.Label("Mix:")
-			g.ui.SliderOpt(&g.metaThreshold, 0.3, 2.0, 0.1, "%.1f", 0)
-
-			// Update speed and threshold in real-time (no need to recreate)
-			if g.metaballs != nil {
-				g.metaballs.config.Speed = g.metaSpeed
-				g.metaballs.config.Threshold = g.metaThreshold
+				// Right column - text
+				g.ui.LayoutBeginColumn()
+				g.ui.LayoutRow(1, []int{-1}, 0)
+				g.ui.Text("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus ipsum, eu varius magna felis a nulla.")
+				g.ui.LayoutEndColumn()
 			}
 
-			// Update metaballs config if resolution or ball count changed
-			if (int(g.metaResolution) != int(oldRes) || int(g.metaBallCount) != int(oldBalls)) && g.metaballs != nil {
-				newConfig := g.metaballs.config
-				newConfig.GridResolution = int(g.metaResolution)
-				newConfig.BallCount = int(g.metaBallCount)
-				g.metaballs = NewMetaballs(newConfig)
+			// Background Color header (expanded by default)
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			if g.ui.HeaderEx("Background Color", microui.OptExpanded) {
+				g.ui.LayoutRow(2, []int{-78, -1}, 74)
+
+				// Left column - sliders
+				g.ui.LayoutBeginColumn()
+				g.ui.LayoutRow(2, []int{46, -1}, 0)
+				g.ui.Label("Red:")
+				g.ui.Slider(&g.bgColor[0], 0, 255)
+				g.ui.Label("Green:")
+				g.ui.Slider(&g.bgColor[1], 0, 255)
+				g.ui.Label("Blue:")
+				g.ui.Slider(&g.bgColor[2], 0, 255)
+				g.ui.LayoutEndColumn()
+
+				// Right column - color preview
+				rect := g.ui.LayoutNext()
+				g.ui.DrawRect(rect, color.RGBA{
+					R: uint8(g.bgColor[0]),
+					G: uint8(g.bgColor[1]),
+					B: uint8(g.bgColor[2]),
+					A: 255,
+				})
+				hexStr := fmt.Sprintf("#%02X%02X%02X", int(g.bgColor[0]), int(g.bgColor[1]), int(g.bgColor[2]))
+				g.ui.DrawControlText(hexStr, rect, microui.ColorText, microui.OptAlignCenter)
+
+				// Metaballs controls
+				g.ui.LayoutRow(2, []int{120, -1}, 0)
+				g.ui.Checkbox("Metaballs", &g.enableMetaballs)
+				g.ui.Label("")
+
+				g.ui.LayoutRow(2, []int{70, -1}, 0)
+				g.ui.Label("Resolution:")
+				oldRes := g.metaResolution
+				g.ui.SliderOpt(&g.metaResolution, 1, 8, 1, "%.0f", 0)
+
+				g.ui.Label("Balls:")
+				oldBalls := g.metaBallCount
+				g.ui.SliderOpt(&g.metaBallCount, 2, 12, 1, "%.0f", 0)
+
+				g.ui.Label("Speed:")
+				g.ui.SliderOpt(&g.metaSpeed, 0.1, 3.0, 0.1, "%.1f", 0)
+
+				g.ui.Label("Mix:")
+				g.ui.SliderOpt(&g.metaThreshold, 0.3, 2.0, 0.1, "%.1f", 0)
+
+				// Update speed and threshold in real-time (no need to recreate)
+				if g.metaballs != nil {
+					g.metaballs.config.Speed = g.metaSpeed
+					g.metaballs.config.Threshold = g.metaThreshold
+				}
+
+				// Update metaballs config if resolution or ball count changed
+				if (int(g.metaResolution) != int(oldRes) || int(g.metaBallCount) != int(oldBalls)) && g.metaballs != nil {
+					newConfig := g.metaballs.config
+					newConfig.GridResolution = int(g.metaResolution)
+					newConfig.BallCount = int(g.metaBallCount)
+					g.metaballs = NewMetaballs(newConfig)
+				}
 			}
-		}
 
 			g.ui.EndWindow()
 		} else {
@@ -383,21 +383,21 @@ func (g *Game) Update() error {
 	if g.inputWindowOpen {
 		if g.ui.BeginWindowOpt("Input Controls", types.Rect{X: 10, Y: 440, W: 280, H: 130}, microui.OptClosed) {
 			// Textbox
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label("Textbox (type to edit):")
-		g.ui.LayoutRow(1, []int{-1}, 0) // Use default height (same as other controls)
-		result := g.ui.Textbox(&g.textboxBuf, 128)
-		if result&microui.ResSubmit != 0 {
-			g.writeLog("Textbox submitted: " + string(g.textboxBuf))
-		}
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			g.ui.Label("Textbox (type to edit):")
+			g.ui.LayoutRow(1, []int{-1}, 0) // Use default height (same as other controls)
+			result := g.ui.Textbox(&g.textboxBuf, 128)
+			if result&microui.ResSubmit != 0 {
+				g.writeLog("Textbox submitted: " + string(g.textboxBuf))
+			}
 
-		// Number input
-		g.ui.LayoutRow(2, []int{100, -1}, 0)
-		g.ui.Label("Number (drag):")
-		g.ui.Number(&g.numberVal, 0.5)
+			// Number input
+			g.ui.LayoutRow(2, []int{100, -1}, 0)
+			g.ui.Label("Number (drag):")
+			g.ui.Number(&g.numberVal, 0.5)
 
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label(fmt.Sprintf("Value: %.2f", g.numberVal))
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			g.ui.Label(fmt.Sprintf("Value: %.2f", g.numberVal))
 
 			g.ui.EndWindow()
 		} else {
@@ -409,34 +409,34 @@ func (g *Game) Update() error {
 	// Column 2, Row 1
 	if g.collapsibleWindowOpen {
 		if g.ui.BeginWindowOpt("Collapsible Controls", types.Rect{X: 300, Y: 10, W: 280, H: 260}, microui.OptClosed) {
-		g.ui.LayoutRow(1, []int{-1}, 0)
+			g.ui.LayoutRow(1, []int{-1}, 0)
 
-		// Header sections
-		if g.ui.Header("Header Section 1") {
-			g.ui.Label("Content inside header 1")
-			g.ui.Label("More content here")
-		}
-
-		if g.ui.Header("Header Section 2") {
-			g.ui.Label("This is header 2 content")
-			if g.ui.Button("Nested Button") {
-				g.writeLog("Nested button clicked!")
+			// Header sections
+			if g.ui.Header("Header Section 1") {
+				g.ui.Label("Content inside header 1")
+				g.ui.Label("More content here")
 			}
-		}
 
-		// TreeNode (hierarchical)
-		if g.ui.BeginTreeNode("Tree Root") {
-			g.ui.Label("Child item 1")
-			g.ui.Label("Child item 2")
+			if g.ui.Header("Header Section 2") {
+				g.ui.Label("This is header 2 content")
+				if g.ui.Button("Nested Button") {
+					g.writeLog("Nested button clicked!")
+				}
+			}
 
-			if g.ui.BeginTreeNode("Nested Node") {
-				g.ui.Label("Nested child A")
-				g.ui.Label("Nested child B")
+			// TreeNode (hierarchical)
+			if g.ui.BeginTreeNode("Tree Root") {
+				g.ui.Label("Child item 1")
+				g.ui.Label("Child item 2")
+
+				if g.ui.BeginTreeNode("Nested Node") {
+					g.ui.Label("Nested child A")
+					g.ui.Label("Nested child B")
+					g.ui.EndTreeNode()
+				}
+
 				g.ui.EndTreeNode()
 			}
-
-			g.ui.EndTreeNode()
-		}
 
 			g.ui.EndWindow()
 		} else {
@@ -466,29 +466,29 @@ func (g *Game) Update() error {
 	// Column 3, Row 1
 	if g.columnWindowOpen {
 		if g.ui.BeginWindowOpt("Column Layout", types.Rect{X: 590, Y: 10, W: 280, H: 180}, microui.OptClosed) {
-		// Two-column layout
-		g.ui.LayoutRow(2, []int{130, -1}, 100)
+			// Two-column layout
+			g.ui.LayoutRow(2, []int{130, -1}, 100)
 
-		// Left column
-		g.ui.LayoutBeginColumn()
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label("Left Column")
-		if g.ui.Button("L1") {
-			g.writeLog("Left 1")
-		}
-		if g.ui.Button("L2") {
-			g.writeLog("Left 2")
-		}
-		g.ui.LayoutEndColumn()
+			// Left column
+			g.ui.LayoutBeginColumn()
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			g.ui.Label("Left Column")
+			if g.ui.Button("L1") {
+				g.writeLog("Left 1")
+			}
+			if g.ui.Button("L2") {
+				g.writeLog("Left 2")
+			}
+			g.ui.LayoutEndColumn()
 
-		// Right column
-		g.ui.LayoutBeginColumn()
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label("Right Column")
-		if g.ui.Button("R1") {
-			g.writeLog("Right 1")
-		}
-		g.ui.LayoutEndColumn()
+			// Right column
+			g.ui.LayoutBeginColumn()
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			g.ui.Label("Right Column")
+			if g.ui.Button("R1") {
+				g.writeLog("Right 1")
+			}
+			g.ui.LayoutEndColumn()
 
 			g.ui.EndWindow()
 		} else {
@@ -537,16 +537,16 @@ func (g *Game) Update() error {
 	// Column 3, Row 4
 	if g.logWindowOpen {
 		if g.ui.BeginWindowOpt("Event Log", types.Rect{X: 590, Y: 480, W: 280, H: 170}, microui.OptClosed) {
-		// Use a panel for scrollable log content - explicit height to fill window body
-		g.ui.LayoutRow(1, []int{-1}, 120) // Panel fills most of window body (150 - title - padding)
-		g.ui.BeginPanel("LogPanel")
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		if len(g.logBuf) > 0 {
-			// Show log lines - Text handles word wrap
-			g.ui.Text(g.logBuf)
-		} else {
-			g.ui.Label("(interact with controls)")
-		}
+			// Use a panel for scrollable log content - explicit height to fill window body
+			g.ui.LayoutRow(1, []int{-1}, 120) // Panel fills most of window body (150 - title - padding)
+			g.ui.BeginPanel("LogPanel")
+			g.ui.LayoutRow(1, []int{-1}, 0)
+			if len(g.logBuf) > 0 {
+				// Show log lines - Text handles word wrap
+				g.ui.Text(g.logBuf)
+			} else {
+				g.ui.Label("(interact with controls)")
+			}
 			g.ui.EndPanel()
 
 			g.ui.EndWindow()

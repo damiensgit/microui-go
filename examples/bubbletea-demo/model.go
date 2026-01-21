@@ -52,11 +52,11 @@ type Model struct {
 	textBuf   []byte
 
 	// Additional demo state (matching ebiten demo)
-	logBuf       string    // Event log buffer
-	numberVal    float64   // Number input value
-	sliderStep   float64   // Slider with step value
-	readOnlyBuf  []byte    // Read-only textbox buffer
-	treeChecks   [2]bool   // Separate checkboxes for tree window
+	logBuf      string  // Event log buffer
+	numberVal   float64 // Number input value
+	sliderStep  float64 // Slider with step value
+	readOnlyBuf []byte  // Read-only textbox buffer
+	treeChecks  [2]bool // Separate checkboxes for tree window
 
 	// Metaballs viewport
 	metaField    *metaballs.Field
@@ -77,11 +77,11 @@ type Model struct {
 	paletteWindowOpen   bool
 	boxTestWindowOpen   bool
 	treeWindowOpen      bool
-	popupWindowOpen      bool
-	columnWindowOpen     bool
-	enhancedWindowOpen   bool
-	logWindowOpen        bool
-	metaballsWindowOpen  bool
+	popupWindowOpen     bool
+	columnWindowOpen    bool
+	enhancedWindowOpen  bool
+	logWindowOpen       bool
+	metaballsWindowOpen bool
 	showWindowsMenu     bool // Toggle for windows restore menu
 	wantsQuit           bool // Signal to quit application
 
@@ -356,8 +356,8 @@ func NewModel(colorMode bubbletea.ColorMode) *Model {
 		inputWindowOpen:     true,
 		scrollWindowOpen:    true,
 		paletteWindowOpen:   true,
-		boxTestWindowOpen:  true,
-		treeWindowOpen:     true,
+		boxTestWindowOpen:   true,
+		treeWindowOpen:      true,
 		popupWindowOpen:     true,
 		columnWindowOpen:    true,
 		enhancedWindowOpen:  true,
@@ -521,9 +521,9 @@ func (m *Model) View() tea.View {
 	// Draw Borland-style desktop background (dithered blue pattern)
 	// Light cyan pattern on dark blue creates the classic dithered look
 	m.renderer.FillBackground(
-		bubbletea.DesktopPattern,  // ░ light shade character
-		bubbletea.DesktopCyan,     // Cyan foreground for the pattern dots
-		bubbletea.DesktopBlue,     // Dark blue background
+		bubbletea.DesktopPattern, // ░ light shade character
+		bubbletea.DesktopCyan,    // Cyan foreground for the pattern dots
+		bubbletea.DesktopBlue,    // Dark blue background
 	)
 
 	// If frame wasn't started in Update (initial View call), start it now

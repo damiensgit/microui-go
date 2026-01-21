@@ -20,9 +20,9 @@ var pixeloidMonoData []byte
 
 // Font wraps a Pixeloid font face for rendering.
 type Font struct {
-	face     *text.GoTextFace
-	source   *text.GoTextFaceSource
-	size     float64
+	face       *text.GoTextFace
+	source     *text.GoTextFaceSource
+	size       float64
 	lineHeight int
 }
 

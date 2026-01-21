@@ -41,7 +41,7 @@ type InputEvent interface {
 
 // MouseEvent represents a mouse event.
 type MouseEvent struct {
-	X, Y  int
+	X, Y int
 	Btn  MouseButton
 	Down bool
 }

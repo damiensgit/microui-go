@@ -17,9 +17,9 @@ const (
 type ColorMode int
 
 const (
-	ColorMode16    ColorMode = iota // 16 ANSI colors - simple cyan/blue
-	ColorMode256                    // 256 colors - HSV with limited palette
-	ColorModeTrueColor              // 24-bit true color - full HSV
+	ColorMode16        ColorMode = iota // 16 ANSI colors - simple cyan/blue
+	ColorMode256                        // 256 colors - HSV with limited palette
+	ColorModeTrueColor                  // 24-bit true color - full HSV
 )
 
 // Cell represents a single TUI cell with half-block encoding
@@ -43,9 +43,9 @@ type TUIRenderer struct {
 	bgColor   color.Color // Background color
 
 	// HSV mode settings (256/true color)
-	hueOffset   float64 // Base hue offset (0-1)
-	saturation  float64 // Color saturation (0-1)
-	colorCycle  float64 // How much hue varies across screen (0-1)
+	hueOffset  float64 // Base hue offset (0-1)
+	saturation float64 // Color saturation (0-1)
+	colorCycle float64 // How much hue varies across screen (0-1)
 }
 
 // NewTUIRenderer creates a renderer for the given field
@@ -60,9 +60,9 @@ func NewTUIRenderer(field *Field, screenW, screenH int) *TUIRenderer {
 		glowColor: color.RGBA{0, 170, 170, 255}, // Darker cyan
 		bgColor:   color.RGBA{0, 0, 128, 255},   // Dark blue
 		// HSV defaults
-		hueOffset:   0.0,
-		saturation:  0.8,
-		colorCycle:  0.5,
+		hueOffset:  0.0,
+		saturation: 0.8,
+		colorCycle: 0.5,
 	}
 }
 

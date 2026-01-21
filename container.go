@@ -4,16 +4,16 @@ import "github.com/user/microui-go/types"
 
 // Container represents a UI container (window, panel, popup).
 type Container struct {
-	id          ID
-	name        string
-	rect        types.Rect
-	body           types.Rect // Content area
-	contentSize    types.Vec2 // Tracks actual content size for scrolling
-	minContentWidth int       // Minimum content width (prevents shrinking below established content)
-	scroll         types.Vec2
-	zindex      int
-	open        bool
-	opt         int // Options passed to container (for AutoSize, etc.)
+	id              ID
+	name            string
+	rect            types.Rect
+	body            types.Rect // Content area
+	contentSize     types.Vec2 // Tracks actual content size for scrolling
+	minContentWidth int        // Minimum content width (prevents shrinking below established content)
+	scroll          types.Vec2
+	zindex          int
+	open            bool
+	opt             int // Options passed to container (for AutoSize, etc.)
 
 	// Command buffer indices for z-order rendering
 	headIdx int // Command buffer index at container start

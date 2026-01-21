@@ -8,7 +8,7 @@ import (
 )
 
 type model struct {
-	lastEvent string
+	lastEvent  string
 	eventCount int
 }
 

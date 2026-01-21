@@ -285,7 +285,7 @@ func LightTheme() *Theme {
 			Shadow:    color.RGBA{R: 120, G: 120, B: 120, A: 255},
 		},
 		Background: color.RGBA{R: 140, G: 180, B: 140, A: 255}, // Soft green like reference
-		PixelScale: 2, // 1 logical px = 2 screen px
+		PixelScale: 2,                                          // 1 logical px = 2 screen px
 	}
 }
 
@@ -341,7 +341,7 @@ func MintTheme() *Theme {
 			Shadow:    color.RGBA{R: 60, G: 60, B: 60, A: 255},
 		},
 		Background: color.RGBA{R: 156, G: 203, B: 161, A: 255}, // Mint green
-		PixelScale: 2, // 1 logical px = 2 screen px
+		PixelScale: 2,                                          // 1 logical px = 2 screen px
 	}
 }
 
@@ -416,9 +416,9 @@ func PixelTheme() *Theme {
 		ControlHeight:   14, // buttons, inputs height
 		TitleHeight:     14, // title bar content height
 		Padding:         struct{ X, Y int }{X: 4, Y: 2},
-		ScrollbarWidth:  4,  // scrollbar track width
-		ScrollbarMargin: 2,  // margin around scrollbar (total area = 2+4+2 = 8 logical)
-		ThumbWidth:      8,  // slider thumb width (logical pixels)
+		ScrollbarWidth:  4, // scrollbar track width
+		ScrollbarMargin: 2, // margin around scrollbar (total area = 2+4+2 = 8 logical)
+		ThumbWidth:      8, // slider thumb width (logical pixels)
 		Spacing:         2,
 
 		// === EFFECTS ===

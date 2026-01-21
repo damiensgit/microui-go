@@ -19,9 +19,7 @@ func TestPopup_Basic(t *testing.T) {
 
 	if ui.BeginPopup("my_popup") {
 		ui.Label("Popup content")
-		if ui.Button("Close") {
-			// Popup will close automatically when clicking outside
-		}
+		ui.Button("Close") // Popup closes when clicking outside
 		ui.EndPopup()
 	}
 

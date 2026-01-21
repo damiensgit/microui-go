@@ -39,7 +39,7 @@ const (
 
 // Config configures snap behavior.
 type Config struct {
-	Threshold  int            // Snap distance in pixels (default 20)
+	Threshold  int               // Snap distance in pixels (default 20)
 	ScreenSize func() (w, h int) // Returns current screen dimensions (for resize support)
 }
 

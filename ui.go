@@ -36,8 +36,8 @@ type Config struct {
 	Style         Style
 	CommandBuf    int
 	InputChanSize int
-	DrawFrame     func(ui *UI, info FrameInfo)    // Custom frame drawing callback with semantic type/state
-	OnWindowDrag  func(ui *UI, cnt *Container)    // Called during window drag (for snap-to-edge, etc.)
+	DrawFrame     func(ui *UI, info FrameInfo) // Custom frame drawing callback with semantic type/state
+	OnWindowDrag  func(ui *UI, cnt *Container) // Called during window drag (for snap-to-edge, etc.)
 }
 
 // UI is the main context for immediate-mode UI.
@@ -71,9 +71,9 @@ type UI struct {
 	treeNodeState map[ID]bool // Tracks expanded/collapsed state for headers/tree nodes
 
 	// Textbox state
-	textboxCursor   int // Cursor position in current textbox (byte offset)
-	textboxScrollX  int // Horizontal scroll offset for current textbox (pixels)
-	lastTextboxID   ID  // ID of last focused textbox (reset cursor on focus change)
+	textboxCursor  int // Cursor position in current textbox (byte offset)
+	textboxScrollX int // Horizontal scroll offset for current textbox (pixels)
+	lastTextboxID  ID  // ID of last focused textbox (reset cursor on focus change)
 
 	// Number textbox edit mode (shift-click)
 	numberTextboxID  ID     // ID of number being edited as textbox
@@ -146,14 +146,6 @@ func New(cfg Config) *UI {
 	ui.onWindowDrag = cfg.OnWindowDrag
 
 	return ui
-}
-
-// abs returns the absolute value of an integer.
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 // clampScroll clamps scroll values to valid range [0, maxScroll].
@@ -2335,19 +2327,19 @@ func (u *UI) processInput() {
 
 // InputState tracks the current input state.
 type InputState struct {
-	MousePos      types.Vec2
-	MouseDelta    types.Vec2   // Mouse movement this frame
-	LastMousePos  types.Vec2   // Previous frame mouse position
-	MouseDown     [3]bool
-	MousePressed  [3]bool      // Cleared each frame
-	ScrollDelta   types.Vec2   // Accumulated scroll this frame
-	KeyDown       map[Key]bool
-	KeyPressed    map[Key]bool // Key presses this frame (cleared each frame)
-	Focus         ID           // Currently focused control (has input capture)
-	Hover         ID           // Control under mouse (only when mouse not down)
-	LastID        ID           // Last control ID processed
-	UpdatedFocus  bool         // Was focus used this frame
-	TextInput     string       // Text input this frame
+	MousePos     types.Vec2
+	MouseDelta   types.Vec2 // Mouse movement this frame
+	LastMousePos types.Vec2 // Previous frame mouse position
+	MouseDown    [3]bool
+	MousePressed [3]bool    // Cleared each frame
+	ScrollDelta  types.Vec2 // Accumulated scroll this frame
+	KeyDown      map[Key]bool
+	KeyPressed   map[Key]bool // Key presses this frame (cleared each frame)
+	Focus        ID           // Currently focused control (has input capture)
+	Hover        ID           // Control under mouse (only when mouse not down)
+	LastID       ID           // Last control ID processed
+	UpdatedFocus bool         // Was focus used this frame
+	TextInput    string       // Text input this frame
 }
 
 // ID is a unique identifier for UI elements.
@@ -2451,9 +2443,9 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		return
 	}
 
-	trackSize := u.style.ScrollbarSize   // Width of scrollbar track
-	margin := u.style.ScrollbarMargin    // Visible margin around scrollbar
-	border := u.style.ScrollbarBorder    // Visual border width (scrollbar must clear this)
+	trackSize := u.style.ScrollbarSize // Width of scrollbar track
+	margin := u.style.ScrollbarMargin  // Visible margin around scrollbar
+	border := u.style.ScrollbarBorder  // Visual border width (scrollbar must clear this)
 	// Total space: margin (content side) + track + margin (border side) + border
 	totalSize := margin + trackSize + margin + border
 
@@ -2486,10 +2478,10 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		// Layout: content | margin | track | margin | border
 		// Vertical: top has margin from content, bottom needs margin + border to clear window border
 		base := types.Rect{
-			X: body.X + body.W + margin,       // margin from content edge
-			Y: body.Y + margin,                // margin from content top
+			X: body.X + body.W + margin, // margin from content edge
+			Y: body.Y + margin,          // margin from content top
 			W: trackSize,
-			H: body.H - margin*2 - border,     // margin top, margin+border bottom
+			H: body.H - margin*2 - border, // margin top, margin+border bottom
 		}
 		scrollID := u.GetID("!scrollbary")
 		u.UpdateControl(scrollID, base)
@@ -2527,9 +2519,9 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		// Layout: border | margin | track | margin | content
 		// Horizontal: left needs margin + border to clear window border, right has margin from content
 		base := types.Rect{
-			X: body.X + margin + border,       // margin+border from window left edge
-			Y: body.Y + body.H + margin,       // margin from content edge
-			W: body.W - margin*2 - border,     // margin+border left, margin right
+			X: body.X + margin + border,   // margin+border from window left edge
+			Y: body.Y + body.H + margin,   // margin from content edge
+			W: body.W - margin*2 - border, // margin+border left, margin right
 			H: trackSize,
 		}
 		scrollID := u.GetID("!scrollbarx")
@@ -2564,4 +2556,3 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 
 	u.PopClip()
 }
-

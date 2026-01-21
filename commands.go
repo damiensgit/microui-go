@@ -39,7 +39,7 @@ type Command struct {
 	Text  string
 	Color color.Color
 	Icon  int
-	Font types.Font
+	Font  types.Font
 }
 
 // CommandBuffer holds render commands for a frame.

@@ -17,21 +17,20 @@ const (
 )
 
 type Game struct {
-	ui             *microui.UI
-	renderer       *retro.Renderer
-	editor         *Editor
-	lastMouse      bool // Track mouse button state for proper down/up events
-	lastDrawMouse  bool // Track mouse state for canvas drawing (separate from UI)
+	ui               *microui.UI
+	renderer         *retro.Renderer
+	editor           *Editor
+	lastMouse        bool // Track mouse button state for proper down/up events
+	lastDrawMouse    bool // Track mouse state for canvas drawing (separate from UI)
 	lastInsideCanvas bool // Track if mouse was inside canvas last frame
 	// For centered zoom - track panel body position from last frame
 	canvasPanelBody types.Rect
 
 	// Demo controls state
-	demoChecks   [3]bool
-	demoSlider   float64
-	demoNumber   float64
-	demoTextBuf  []byte
-	demoExpanded bool
+	demoChecks  [3]bool
+	demoSlider  float64
+	demoNumber  float64
+	demoTextBuf []byte
 }
 
 func NewGame() (*Game, error) {
@@ -50,9 +49,9 @@ func NewGame() (*Game, error) {
 	style.ScrollbarSize = theme.StyleScrollbarWidth()
 	style.ScrollbarMargin = theme.StyleScrollbarMargin()
 	style.ScrollbarBorder = theme.StyleScrollbarBorder()
-	style.WindowBorder = theme.StyleWindowBorder()       // For content clipping
-	style.ControlMargin = theme.StyleControlMargin()     // Control border width (clip boundary)
-	style.ControlPadding = theme.StyleControlPadding()   // Additional padding inside border
+	style.WindowBorder = theme.StyleWindowBorder()     // For content clipping
+	style.ControlMargin = theme.StyleControlMargin()   // Control border width (clip boundary)
+	style.ControlPadding = theme.StyleControlPadding() // Additional padding inside border
 	style.Spacing = theme.StyleSpacing()
 	style.ThumbSize = theme.StyleThumbSize()
 	padX, padY := theme.StylePadding()

@@ -4,21 +4,21 @@ import "github.com/user/microui-go/types"
 
 // Option flags for controls
 const (
-	OptAlignCenter = 1 << iota // Center text alignment
-	OptAlignRight              // Right text alignment
-	OptNoInteract              // Non-interactive (display only)
-	OptNoFrame                 // Don't draw control frame
-	OptNoResize                // Window: disable resize
-	OptNoScroll                // Panel: disable scrollbars
-	OptNoClose                 // Window: no close button
-	OptNoTitle                 // Window: no title bar
-	OptHoldFocus               // Keep focus after interaction
-	OptAutoSize                // Container: auto-size to content
-	OptPopup                   // Popup behavior
-	OptClosed                  // Start closed/collapsed
-	OptExpanded                // Start expanded (default for headers)
-	OptAlwaysOnTop             // Window: always render on top of other windows
-	OptNoControlInset          // Text: don't apply control margin/padding (for labels, titles)
+	OptAlignCenter    = 1 << iota // Center text alignment
+	OptAlignRight                 // Right text alignment
+	OptNoInteract                 // Non-interactive (display only)
+	OptNoFrame                    // Don't draw control frame
+	OptNoResize                   // Window: disable resize
+	OptNoScroll                   // Panel: disable scrollbars
+	OptNoClose                    // Window: no close button
+	OptNoTitle                    // Window: no title bar
+	OptHoldFocus                  // Keep focus after interaction
+	OptAutoSize                   // Container: auto-size to content
+	OptPopup                      // Popup behavior
+	OptClosed                     // Start closed/collapsed
+	OptExpanded                   // Start expanded (default for headers)
+	OptAlwaysOnTop                // Window: always render on top of other windows
+	OptNoControlInset             // Text: don't apply control margin/padding (for labels, titles)
 )
 
 // Response flags returned by controls

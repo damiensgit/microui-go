@@ -4,57 +4,6 @@ import (
 	"image/color"
 )
 
-// RGBA represents a color in RGBA format.
-// Values are 0-255.
-type RGBA struct {
-	R, G, B, A uint8
-}
-
-// RGBAFromColor creates a types.RGBA from standard color.Color.
-func RGBAFromColor(c color.Color) RGBA {
-	if c == nil {
-		return RGBA{}
-	}
-	r, g, b, a := c.RGBA()
-	return RGBA{
-		R: uint8(r >> 8),
-		G: uint8(g >> 8),
-		B: uint8(b >> 8),
-		A: uint8(a >> 8),
-	}
-}
-
-// ToColor converts to standard color.Color.
-func (c RGBA) ToColor() color.Color {
-	return color.RGBA{
-		R: c.R,
-		G: c.G,
-		B: c.B,
-		A: c.A,
-	}
-}
-
-// Premultiply returns alpha-premultiplied color.
-func (c RGBA) Premultiply() RGBA {
-	if c.A == 255 {
-		return c
-	}
-	a := uint16(c.A)
-	return RGBA{
-		R: uint8((uint16(c.R) * a) / 255),
-		G: uint8((uint16(c.G) * a) / 255),
-		B: uint8((uint16(c.B) * a) / 255),
-		A: c.A,
-	}
-}
-
-// Common colors
-var (
-	ColorTransparent = RGBA{A: 0}
-	ColorBlack       = RGBA{R: 0, G: 0, B: 0, A: 255}
-	ColorWhite       = RGBA{R: 255, G: 255, B: 255, A: 255}
-)
-
 // DarkTheme returns the default dark theme colors.
 func DarkTheme() ThemeColors {
 	return ThemeColors{

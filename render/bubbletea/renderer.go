@@ -13,10 +13,10 @@ import (
 type ColorMode int
 
 const (
-	ColorAuto     ColorMode = iota // Auto-detect (default, assumes true color)
-	Color16                        // 16 ANSI colors
-	Color256                       // 256 color palette
-	ColorTrueColor                 // 24-bit true color
+	ColorAuto      ColorMode = iota // Auto-detect (default, assumes true color)
+	Color16                         // 16 ANSI colors
+	Color256                        // 256 color palette
+	ColorTrueColor                  // 24-bit true color
 )
 
 // Cell represents a single terminal cell with character and colors.
@@ -198,39 +198,6 @@ func (r *Renderer) DrawRect(pos, size types.Vec2, c color.Color) {
 				r.back[y][x] = Cell{
 					Char: ' ',
 					Bg:   c,
-				}
-			}
-		}
-	}
-}
-
-// fillRectWithChar is an internal helper for character-based fills.
-func (r *Renderer) fillRectWithChar(pos, size types.Vec2, ch rune, fg, bg color.Color) {
-	x1 := pos.X
-	y1 := pos.Y
-	x2 := pos.X + size.X
-	y2 := pos.Y + size.Y
-
-	if x1 < r.clipRect.X {
-		x1 = r.clipRect.X
-	}
-	if y1 < r.clipRect.Y {
-		y1 = r.clipRect.Y
-	}
-	if x2 > r.clipRect.X+r.clipRect.W {
-		x2 = r.clipRect.X + r.clipRect.W
-	}
-	if y2 > r.clipRect.Y+r.clipRect.H {
-		y2 = r.clipRect.Y + r.clipRect.H
-	}
-
-	for y := y1; y < y2; y++ {
-		for x := x1; x < x2; x++ {
-			if r.inBounds(x, y) {
-				r.back[y][x] = Cell{
-					Char: ch,
-					Fg:   fg,
-					Bg:   bg,
 				}
 			}
 		}

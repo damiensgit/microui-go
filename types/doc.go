@@ -7,14 +7,13 @@
 //
 //   - Vec2: 2D vector/point
 //   - Rect: Rectangle with position and size
-//   - RGBA: Color in RGBA format (0-255)
 //   - Font: Interface for text measurement
-//   - ThemeColors: Predefined color themes
+//   - ThemeColors: Predefined color themes (DarkTheme, LightTheme)
 //
 // # Usage
 //
 //	import "github.com/user/microui-go/types"
 //
 //	rect := types.Rect{X: 10, Y: 10, W: 200, H: 100}
-//	color := types.RGBA{R: 255, G: 128, B: 64, A: 255}
+//	theme := types.DarkTheme()
 package types

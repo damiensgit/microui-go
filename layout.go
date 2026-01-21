@@ -151,8 +151,8 @@ func (u *UI) LayoutNext() types.Rect {
 func (u *UI) getLayout() *Layout {
 	if u.layoutStack.Len() == 0 {
 		layout := Layout{
-			body:    u.currentWindowRect,
-			max:     types.Vec2{X: layoutBoundsSentinel, Y: layoutBoundsSentinel},
+			body: u.currentWindowRect,
+			max:  types.Vec2{X: layoutBoundsSentinel, Y: layoutBoundsSentinel},
 		}
 		if layout.body.Empty() {
 			layout.body = types.Rect{X: 0, Y: 0, W: 800, H: 600}
@@ -243,16 +243,6 @@ func (u *UI) LayoutEndColumn() {
 		parentLayout.max.Y = childLayout.max.Y
 	}
 	u.columnStack.Pop()
-}
-
-// expandRect expands a rect by n pixels on each side.
-func expandRect(rect types.Rect, n int) types.Rect {
-	return types.Rect{
-		X: rect.X - n,
-		Y: rect.Y - n,
-		W: rect.W + n*2,
-		H: rect.H + n*2,
-	}
 }
 
 // expandRectXY expands a rect by separate X and Y values.

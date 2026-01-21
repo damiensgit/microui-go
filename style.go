@@ -11,20 +11,20 @@ type Style struct {
 	Colors types.ThemeColors
 
 	// Sizing
-	Size           types.Vec2 // Default control size
-	Padding        types.Vec2 // Internal padding
-	Spacing        int        // Space between controls
-	Indent         int        // Tree/header indent
-	TitleHeight    int        // Window title bar height
-	ScrollbarSize   int // Scrollbar track width
-	ScrollbarMargin int // Visible margin around scrollbar track
-	ScrollbarBorder int // Visual border width that scrollbar must clear
-	ThumbSize       int // Slider thumb size
+	Size            types.Vec2 // Default control size
+	Padding         types.Vec2 // Internal padding
+	Spacing         int        // Space between controls
+	Indent          int        // Tree/header indent
+	TitleHeight     int        // Window title bar height
+	ScrollbarSize   int        // Scrollbar track width
+	ScrollbarMargin int        // Visible margin around scrollbar track
+	ScrollbarBorder int        // Visual border width that scrollbar must clear
+	ThumbSize       int        // Slider thumb size
 
 	// Content inset (for TUI where borders are drawn on-edge)
 	BorderWidth int // Window border width - content is inset by this amount
-	                // GUI: 0 (borders drawn outside/expanded, no inset needed)
-	                // TUI: 1 (borders drawn on-edge, content must be inset)
+	// GUI: 0 (borders drawn outside/expanded, no inset needed)
+	// TUI: 1 (borders drawn on-edge, content must be inset)
 
 	// Visual border widths for clipping (renderer-specific, GUI only)
 	// These define how much space the rendered borders occupy, used for:

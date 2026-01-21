@@ -83,6 +83,6 @@ var (
 
 // Status bar colors - classic Turbo Vision style
 var (
-	StatusBarFg = color.RGBA{R: 0, G: 0, B: 0, A: 255}       // Black text
-	StatusBarBg = color.RGBA{R: 0, G: 170, B: 170, A: 255}   // Cyan background
+	StatusBarFg = color.RGBA{R: 0, G: 0, B: 0, A: 255}     // Black text
+	StatusBarBg = color.RGBA{R: 0, G: 170, B: 170, A: 255} // Cyan background
 )

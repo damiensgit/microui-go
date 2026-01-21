@@ -8,27 +8,37 @@ import (
 
 func TestWindow_ResizeFromCorner(t *testing.T) {
 	ui := New(Config{})
+	style := ui.Style()
+
+	// Window size = body size (content area). System adds chrome.
+	// GUIStyle: BorderWidth=0, TitleHeight=24
+	// Body: 200x150 → Window: 200x174 (150+24)
+	bodyW, bodyH := 200, 150
+	windowH := bodyH + style.TitleHeight + style.BorderWidth // 174
+
+	// Window at (100, 50) with size 200x174
+	// Bottom-right corner at (300, 224)
+	cornerX := 100 + bodyW - 5 // 295
+	cornerY := 50 + windowH - 5 // 219
 
 	// Setup frame: establish initial mouse position
-	// Bottom-right corner (window at 100,50 with size 200x150)
-	// Corner area is last scrollbarSize pixels
-	ui.MouseMove(295, 195) // Near bottom-right corner
+	ui.MouseMove(cornerX, cornerY)
 	ui.BeginFrame()
-	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
 	// Frame 1: Click on resize corner
-	ui.MouseDown(295, 195, MouseLeft)
+	ui.MouseDown(cornerX, cornerY, MouseLeft)
 	ui.BeginFrame()
-	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
 	// Frame 2: Drag to resize 50 wider, 30 taller
-	ui.MouseMove(345, 225)
+	ui.MouseMove(cornerX+50, cornerY+30)
 	ui.BeginFrame()
-	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("Resizable", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
@@ -37,8 +47,9 @@ func TestWindow_ResizeFromCorner(t *testing.T) {
 	if cnt.Rect().W != 250 {
 		t.Errorf("Window W = %d, want 250 (resized +50)", cnt.Rect().W)
 	}
-	if cnt.Rect().H != 180 {
-		t.Errorf("Window H = %d, want 180 (resized +30)", cnt.Rect().H)
+	expectedH := windowH + 30 // 174 + 30 = 204
+	if cnt.Rect().H != expectedH {
+		t.Errorf("Window H = %d, want %d (resized +30)", cnt.Rect().H, expectedH)
 	}
 }
 
@@ -109,32 +120,41 @@ func TestWindow_NoResizeOption(t *testing.T) {
 
 func TestWindow_ResizeClearsOnMouseRelease(t *testing.T) {
 	ui := New(Config{})
+	style := ui.Style()
+
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 200, 150
+	windowH := bodyH + style.TitleHeight + style.BorderWidth // 174
+
+	// Window at (100, 50), corner at (295, 219)
+	cornerX := 100 + bodyW - 5
+	cornerY := 50 + windowH - 5
 
 	// Setup frame: establish initial mouse position
-	ui.MouseMove(295, 195)
+	ui.MouseMove(cornerX, cornerY)
 	ui.BeginFrame()
-	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
 	// Frame 1: Click on resize corner
-	ui.MouseDown(295, 195, MouseLeft)
+	ui.MouseDown(cornerX, cornerY, MouseLeft)
 	ui.BeginFrame()
-	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
-	// Frame 2: Drag while mouse down
-	ui.MouseMove(345, 225)
+	// Frame 2: Drag while mouse down (+50, +30)
+	ui.MouseMove(cornerX+50, cornerY+30)
 	ui.BeginFrame()
-	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
 	// Frame 3: Release mouse
-	ui.MouseUp(345, 225, MouseLeft)
+	ui.MouseUp(cornerX+50, cornerY+30, MouseLeft)
 	ui.BeginFrame()
-	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 
@@ -147,7 +167,7 @@ func TestWindow_ResizeClearsOnMouseRelease(t *testing.T) {
 	// Frame 4: Move mouse further (should not affect size since resize ended)
 	ui.MouseMove(400, 300)
 	ui.BeginFrame()
-	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: 200, H: 150})
+	ui.BeginWindow("ResizeRelease", types.Rect{X: 100, Y: 50, W: bodyW, H: bodyH})
 	ui.EndWindow()
 	ui.EndFrame()
 

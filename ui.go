@@ -53,6 +53,7 @@ type UI struct {
 	idStack        growStack[ID]
 	columnStack    growStack[ColumnLayout]
 	containerStack growStack[*Container]
+	paddingStack   growStack[types.Vec2] // Style stack for per-window padding
 
 	// Container management
 	containers map[ID]*Container
@@ -468,6 +469,21 @@ func (u *UI) Style() Style {
 	return u.style
 }
 
+// PushPadding temporarily overrides the window padding.
+// Call PopPadding to restore the previous value.
+// Use this for windows that need custom padding (e.g., zero for edge-to-edge content).
+func (u *UI) PushPadding(p types.Vec2) {
+	u.paddingStack.Push(u.style.Padding)
+	u.style.Padding = p
+}
+
+// PopPadding restores the previous padding value.
+func (u *UI) PopPadding() {
+	if u.paddingStack.Len() > 0 {
+		u.style.Padding = u.paddingStack.Pop()
+	}
+}
+
 // Frame returns the current frame number.
 func (u *UI) Frame() int {
 	return u.frame
@@ -480,7 +496,7 @@ func (u *UI) ScrollDelta() types.Vec2 {
 
 // Label adds a text label to the current layout.
 func (u *UI) Label(text string) {
-	u.DrawControlText(text, u.LayoutNext(), ColorText, OptNoControlInset)
+	u.DrawText(text, u.LayoutNext(), ColorText, 0)
 }
 
 // Space adds vertical spacing without any control or extra spacing.
@@ -493,7 +509,7 @@ func (u *UI) Space(height int) {
 
 // LabelOpt adds a text label with alignment options.
 func (u *UI) LabelOpt(text string, opt int) {
-	u.DrawControlText(text, u.LayoutNext(), ColorText, opt|OptNoControlInset)
+	u.DrawText(text, u.LayoutNext(), ColorText, opt)
 }
 
 // Button adds a button to the current layout.
@@ -591,6 +607,20 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 	// Only set rect on first frame (when zindex is 0, meaning not yet initialized)
 	// After that, the container maintains its own position (for dragging, etc.)
 	if cnt.zindex == 0 {
+		// Rect W/H is content area (body) - expand to add chrome (title, borders)
+		// Chrome includes: BorderWidth (TUI structural), WindowBorder (GUI visual), TitleHeight
+		// Padding is a layout concern inside the content area, not window chrome
+		chromeW := u.style.BorderWidth*2 + u.style.WindowBorder*2
+		// For titled windows: top border is part of title area, only add bottom WindowBorder
+		// For no-title windows: need both top and bottom WindowBorder
+		if opt&OptNoTitle == 0 {
+			chromeH := u.style.BorderWidth + u.style.WindowBorder + u.style.TitleHeight
+			rect.H += chromeH
+		} else {
+			chromeH := u.style.BorderWidth*2 + u.style.WindowBorder*2
+			rect.H += chromeH
+		}
+		rect.W += chromeW
 		cnt.rect = rect
 	}
 
@@ -723,13 +753,18 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 			}
 		}
 
-		// For text centering, account for visual border (renderer insets title bar)
+		// Title text uses its own dedicated padding (independent of content padding)
 		textTitleRect := titleRect
+		inset := u.style.WindowBorder + u.style.TitlePadding
+		if inset > 0 {
+			textTitleRect.X += inset
+			textTitleRect.W -= inset * 2
+		}
 		if wb := u.style.WindowBorder; wb > 0 {
 			textTitleRect.Y += wb
 			textTitleRect.H -= wb
 		}
-		u.DrawControlText(title, textTitleRect, ColorTitleText, opt|OptNoControlInset)
+		u.DrawText(title, textTitleRect, ColorTitleText, opt&(OptAlignCenter|OptAlignRight))
 
 		contentRect = body
 	}
@@ -782,8 +817,10 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 	hasHScroll := contentRect.H < preScrollH
 
 	if opt&OptNoResize == 0 {
-		sz := u.style.ScrollbarSize
+		// Use TitleHeight for resize gripper - large enough for the icon
+		sz := u.style.TitleHeight
 		resizeID := u.GetID("!resize")
+		// Extend to window edge (cover the border)
 		resizeRect := types.Rect{
 			X: rect.X + rect.W - sz,
 			Y: rect.Y + rect.H - sz,
@@ -818,7 +855,6 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 		}
 	}
 
-	cnt.body = contentRect
 	u.currentWindowRect = contentRect
 
 	// Clip content to inside the visual border (prevents rendering into window frame)
@@ -841,14 +877,19 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 	}
 	u.PushClip(clipRect)
 
-	paddedBody := expandRectXY(contentRect, -u.style.Padding.X, -u.style.Padding.Y)
-	if paddedBody.W < 0 {
-		paddedBody.W = 0
+	// Body is the usable area after border clipping
+	// This is what cnt.Body() returns - the area where content can actually appear
+	cnt.body = clipRect
+
+	// Apply padding from style (use PushPadding/PopPadding for per-window overrides)
+	layoutBody := expandRectXY(clipRect, -u.style.Padding.X, -u.style.Padding.Y)
+	if layoutBody.W < 0 {
+		layoutBody.W = 0
 	}
-	if paddedBody.H < 0 {
-		paddedBody.H = 0
+	if layoutBody.H < 0 {
+		layoutBody.H = 0
 	}
-	u.pushLayout(paddedBody, cnt.scroll, cnt.minContentWidth)
+	u.pushLayout(layoutBody, cnt.scroll, cnt.minContentWidth)
 
 	return true
 }
@@ -862,6 +903,7 @@ func (u *UI) EndWindow() {
 		cnt.contentSize.Y = layout.max.Y - layout.body.Y
 
 		// Update minimum content width when content overflows
+		// Use current style.Padding (may be overridden via PushPadding)
 		maxScrollX := cnt.contentSize.X + u.style.Padding.X*2 - cnt.body.W
 		if maxScrollX > 0 && cnt.contentSize.X > cnt.minContentWidth {
 			cnt.minContentWidth = cnt.contentSize.X
@@ -1091,40 +1133,66 @@ func (u *UI) DrawControlFrame(id ID, rect types.Rect, kind FrameKind, opt int) {
 	})
 }
 
-// DrawControlText draws text inside a control rect with alignment options.
+// DrawText draws text within a rect with alignment options.
+// This is for simple text (labels, titles) - no control margin/padding applied.
+// The text is clipped to the rect and vertically centered.
+func (u *UI) DrawText(text string, rect types.Rect, colorID int, opt int) {
+	font := u.style.Font
+	textWidth := font.Width(text)
+	textHeight := font.Height()
+
+	u.PushClip(rect)
+
+	// Calculate position based on alignment
+	var pos types.Vec2
+	pos.Y = rect.Y + (rect.H-textHeight)/2
+
+	if opt&OptAlignCenter != 0 {
+		pos.X = rect.X + (rect.W-textWidth)/2
+	} else if opt&OptAlignRight != 0 {
+		pos.X = rect.X + rect.W - textWidth
+	} else {
+		pos.X = rect.X
+	}
+
+	u.commands.Push(Command{
+		Kind:  CmdText,
+		Text:  text,
+		Pos:   pos,
+		Color: u.GetColorByID(colorID),
+		Font:  font,
+	})
+
+	u.PopClip()
+}
+
+// DrawControlText draws text inside a control rect with margin/padding.
+// This is for text inside controls (buttons, inputs) where the control has
+// a visual border (margin) and internal spacing (padding).
 func (u *UI) DrawControlText(text string, rect types.Rect, colorID int, opt int) {
 	font := u.style.Font
 	textWidth := font.Width(text)
 	textHeight := font.Height()
 
-	// OptNoControlInset: use rect directly with style padding (for titles, labels)
-	// Otherwise: apply control margin (border) for clipping, margin+padding for content
-	var clipRect, contentRect types.Rect
-	if opt&OptNoControlInset != 0 {
-		clipRect = rect
-		contentRect = rect
-		contentRect.X += u.style.Padding.X
-		contentRect.W -= u.style.Padding.X * 2
-	} else {
-		margin := u.style.ControlMargin
-		padding := u.style.ControlPadding
-		inset := margin + padding
+	// Apply control margin (border) for clipping, margin+padding for content
+	margin := u.style.ControlMargin
+	padding := u.style.ControlPadding
+	inset := margin + padding
 
-		clipRect = rect
-		if margin > 0 {
-			clipRect.X += margin
-			clipRect.Y += margin
-			clipRect.W -= margin * 2
-			clipRect.H -= margin * 2
-		}
+	clipRect := rect
+	if margin > 0 {
+		clipRect.X += margin
+		clipRect.Y += margin
+		clipRect.W -= margin * 2
+		clipRect.H -= margin * 2
+	}
 
-		contentRect = rect
-		if inset > 0 {
-			contentRect.X += inset
-			contentRect.Y += inset
-			contentRect.W -= inset * 2
-			contentRect.H -= inset * 2
-		}
+	contentRect := rect
+	if inset > 0 {
+		contentRect.X += inset
+		contentRect.Y += inset
+		contentRect.W -= inset * 2
+		contentRect.H -= inset * 2
 	}
 
 	u.PushClip(clipRect)
@@ -1385,7 +1453,14 @@ func (u *UI) PopWindowRect() {
 func (u *UI) Checkbox(label string, checked *bool) bool {
 	id := u.getIDFromPtr(checked)
 	rect := u.LayoutNext()
-	box := types.Rect{X: rect.X, Y: rect.Y, W: rect.H, H: rect.H}
+	// Box is square based on row height, inset by ControlMargin for visual spacing
+	inset := u.style.ControlMargin
+	box := types.Rect{
+		X: rect.X + inset,
+		Y: rect.Y + inset,
+		W: rect.H - inset*2,
+		H: rect.H - inset*2,
+	}
 	u.UpdateControl(id, rect)
 
 	changed := false
@@ -1398,7 +1473,9 @@ func (u *UI) Checkbox(label string, checked *bool) bool {
 	if *checked {
 		u.DrawIcon(IconCheck, box, u.style.Colors.Text)
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + box.W, Y: rect.Y, W: rect.W - box.W, H: rect.H}, ColorText, OptNoControlInset)
+	// Text starts after box with extra spacing (double the inset gap)
+	textX := rect.X + rect.H + inset
+	u.DrawText(label, types.Rect{X: textX, Y: rect.Y, W: rect.W - (textX - rect.X), H: rect.H}, ColorText, 0)
 	return changed
 }
 
@@ -1488,7 +1565,7 @@ func (u *UI) SliderOpt(value *float64, low, high, step float64, format string, o
 		W: rect.W - textMargin*2,
 		H: rect.H,
 	}
-	u.DrawControlText(text, textRect, ColorText, opt|OptAlignCenter|OptNoControlInset)
+	u.DrawText(text, textRect, ColorText, OptAlignCenter)
 
 	return changed
 }
@@ -1922,7 +1999,7 @@ func (u *UI) HeaderEx(label string, opt int) bool {
 	if iconOffset < 2 {
 		iconOffset = 2
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, OptNoControlInset)
+	u.DrawText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, 0)
 	return expanded
 }
 
@@ -1963,7 +2040,7 @@ func (u *UI) BeginTreeNodeEx(label string, opt int) bool {
 	if iconOffset < 2 {
 		iconOffset = 2
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, OptNoControlInset)
+	u.DrawText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, 0)
 
 	if expanded {
 		u.getLayout().indent += u.style.Indent
@@ -2473,7 +2550,12 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 	}
 
 	// Vertical scrollbar (right side)
-	maxScrollY := cs.Y - body.H
+	// Account for WindowBorder if no horizontal scrollbar (body will be clipped smaller)
+	effectiveBodyH := body.H
+	if cs.X <= prevW && u.style.WindowBorder > 0 {
+		effectiveBodyH -= u.style.WindowBorder
+	}
+	maxScrollY := cs.Y - effectiveBodyH
 	if maxScrollY > 0 && body.H > 0 {
 		// Layout: content | margin | track | margin | border
 		// Vertical: top has margin from content, bottom needs margin + border to clear window border
@@ -2499,7 +2581,7 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 
 		thumb := base
 		thumbMinSize := u.style.ThumbSize
-		thumb.H = base.H * body.H / cs.Y
+		thumb.H = base.H * effectiveBodyH / cs.Y
 		if thumb.H < thumbMinSize {
 			thumb.H = thumbMinSize
 		}
@@ -2514,7 +2596,12 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 	}
 
 	// Horizontal scrollbar (bottom)
-	maxScrollX := cs.X - body.W
+	// Account for WindowBorder if no vertical scrollbar (body will be clipped smaller)
+	effectiveBodyW := body.W
+	if cs.Y <= prevH && u.style.WindowBorder > 0 {
+		effectiveBodyW -= u.style.WindowBorder
+	}
+	maxScrollX := cs.X - effectiveBodyW
 	if maxScrollX > 0 && body.W > 0 {
 		// Layout: border | margin | track | margin | content
 		// Horizontal: left needs margin + border to clear window border, right has margin from content
@@ -2540,7 +2627,7 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 
 		thumb := base
 		thumbMinSize := u.style.ThumbSize
-		thumb.W = base.W * body.W / cs.X
+		thumb.W = base.W * effectiveBodyW / cs.X
 		if thumb.W < thumbMinSize {
 			thumb.W = thumbMinSize
 		}

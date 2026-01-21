@@ -6,6 +6,13 @@ import (
 	"github.com/user/microui-go/types"
 )
 
+// bodyRect is a helper to create a rect for BeginWindow.
+// Window size = body size (content area). System adds chrome (title, borders).
+// Padding is internal layout, not part of window sizing.
+func bodyRect(x, y, w, h int) types.Rect {
+	return types.Rect{X: x, Y: y, W: w, H: h}
+}
+
 func TestScrollbar_AppearsWhenContentOverflows(t *testing.T) {
 	ui := New(Config{})
 
@@ -246,20 +253,17 @@ func TestTUIScrollbar_VerticalAppearsImmediately(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	// Calculate expected body dimensions for a 20x12 window
-	// TUI: titleHeight=1, borderWidth=1
-	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                   // 20 - 2 = 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 12 - 1 - 1 = 10
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 10
 
 	// Content that just overflows: 11 rows in 10-row body
-	contentH := bodyH + 1 // 11
+	overflowH := bodyH + 1 // 11
 
 	// Frame 1: Create window with overflowing content
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		// Add content rows
-		for i := 0; i < contentH; i++ {
+		for i := 0; i < overflowH; i++ {
 			ui.LayoutRow(1, []int{-1}, 1) // 1-cell height per row
 			ui.Label("X")
 		}
@@ -269,8 +273,8 @@ func TestTUIScrollbar_VerticalAppearsImmediately(t *testing.T) {
 
 	// Frame 2: Scrollbar should now be visible
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
-		for i := 0; i < contentH; i++ {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
+		for i := 0; i < overflowH; i++ {
 			ui.LayoutRow(1, []int{-1}, 1)
 			ui.Label("X")
 		}
@@ -293,21 +297,20 @@ func TestTUIScrollbar_HorizontalOnly(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 8
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 6
+	// Window size = body size
+	bodyW, bodyH := 18, 6
 
 	// Content that:
 	// - Is wider than body (needs horizontal scrollbar)
 	// - Fits in body height (no vertical scrollbar)
-	contentW := bodyW + 10 // 28 - needs horizontal scrollbar
-	contentRows := 2       // Small content, fits in 6 cells (2 rows * 2 cells each with spacing)
+	overflowW := bodyW + 10 // 28 - needs horizontal scrollbar
+	contentRows := 2        // Small content, fits in 6 cells
 
 	drawFrame := func() {
 		ui.BeginFrame()
-		if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+		if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 			for i := 0; i < contentRows; i++ {
-				ui.LayoutRow(1, []int{contentW}, 1)
+				ui.LayoutRow(1, []int{overflowW}, 1)
 				ui.Label("X")
 			}
 			ui.EndWindow()
@@ -344,9 +347,8 @@ func TestTUIScrollbar_VerticalTriggersHorizontal(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 10
 
 	// Content that:
 	// - Is taller than body (needs vertical scrollbar)
@@ -356,7 +358,7 @@ func TestTUIScrollbar_VerticalTriggersHorizontal(t *testing.T) {
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentH; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -367,7 +369,7 @@ func TestTUIScrollbar_VerticalTriggersHorizontal(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentH; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -399,19 +401,17 @@ func TestTUIScrollbar_AppearsWhenWindowShrinks(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	// Start with window large enough to fit content
-	largeWindowH := 15 // Body will be 15 - 1 (title) - 1 (border) = 13
-	smallWindowH := 12 // Body will be 12 - 1 - 1 = 10
-
-	windowW := 20
-	bodyW := windowW - style.BorderWidth*2 // 18
+	// Window size = body size (content area). System adds chrome.
+	largeBodyH := 13 // Large enough to fit content
+	smallBodyH := 10 // Small enough that content overflows
+	bodyW := 18
 
 	// Content: 6 rows with spacing = 6 + 5 = 11 cells (fits in 13, overflows 10)
 	contentRows := 6
 
 	// Frame 1: Large window, content fits
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: largeWindowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, largeBodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{-1}, 1)
 			ui.Label("X")
@@ -427,11 +427,15 @@ func TestTUIScrollbar_AppearsWhenWindowShrinks(t *testing.T) {
 	}
 
 	// Frame 2: Shrink window - content should now overflow
-	// Manually update container rect to simulate window resize
-	cnt.SetRect(types.Rect{X: 0, Y: 0, W: windowW, H: smallWindowH})
+	// Manually update container rect to simulate window resize (need to include chrome)
+	cnt.SetRect(types.Rect{
+		X: 0, Y: 0,
+		W: bodyW + style.BorderWidth*2,
+		H: smallBodyH + style.TitleHeight + style.BorderWidth,
+	})
 
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: smallWindowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, smallBodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{-1}, 1)
 			ui.Label("X")
@@ -442,7 +446,7 @@ func TestTUIScrollbar_AppearsWhenWindowShrinks(t *testing.T) {
 
 	// Frame 3: C microui uses previous frame's body, so scrollbar appears one frame after resize
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: smallWindowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, smallBodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{-1}, 1)
 			ui.Label("X")
@@ -466,9 +470,8 @@ func TestTUIScrollbar_MaxScrollAccountsForBothScrollbars(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 10
 
 	// Content larger than body in BOTH dimensions (needs both scrollbars)
 	// 8 rows with spacing = 8 + 7 = 15 cells (> 10)
@@ -478,7 +481,7 @@ func TestTUIScrollbar_MaxScrollAccountsForBothScrollbars(t *testing.T) {
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -489,7 +492,7 @@ func TestTUIScrollbar_MaxScrollAccountsForBothScrollbars(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -531,7 +534,7 @@ func TestTUIScrollbar_MaxScrollAccountsForBothScrollbars(t *testing.T) {
 
 	// Run another frame to clamp scroll
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -555,9 +558,8 @@ func TestTUIScrollbar_NoScrollbarsWhenContentFits(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 12
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 10
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 10
 
 	// Content that fits - account for spacing AND padding!
 	// With spacing=1, N rows take N + (N-1) = 2N-1 cells
@@ -570,7 +572,7 @@ func TestTUIScrollbar_NoScrollbarsWhenContentFits(t *testing.T) {
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -581,7 +583,7 @@ func TestTUIScrollbar_NoScrollbarsWhenContentFits(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -610,9 +612,8 @@ func TestTUIScrollbar_VerticalOnlyNoBottomClip(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 8
 
 	// Content that overflows vertically but fits horizontally
 	// 10 rows with spacing = 10 + 9 = 19 cells (overflows bodyH=8)
@@ -620,11 +621,11 @@ func TestTUIScrollbar_VerticalOnlyNoBottomClip(t *testing.T) {
 	contentRows := 10
 	contentW := bodyW - style.Padding.X*2 - 2 // Fits easily (14 < 18)
 
-	t.Logf("Window: %dx%d, Body: %dx%d, contentW: %d", windowW, windowH, bodyW, bodyH, contentW)
+	t.Logf("Body: %dx%d, contentW: %d", bodyW, bodyH, contentW)
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -635,7 +636,7 @@ func TestTUIScrollbar_VerticalOnlyNoBottomClip(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -674,9 +675,8 @@ func TestTUIScrollbar_VerticalOnlyAlmostFillsWidth(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 8
 
 	// Content that overflows vertically but fits horizontally EVEN with vertical scrollbar
 	// Vertical scrollbar takes 1 cell, so available width = 18 - 1 = 17
@@ -686,11 +686,11 @@ func TestTUIScrollbar_VerticalOnlyAlmostFillsWidth(t *testing.T) {
 	// So contentW + 2 <= 18 - 1 = 17, contentW <= 15
 	contentW := 15 // Exactly fits: 15 + 2 = 17 = 18 - 1
 
-	t.Logf("Window: %dx%d, Body: %dx%d, contentW: %d", windowW, windowH, bodyW, bodyH, contentW)
+	t.Logf("Body: %dx%d, contentW: %d", bodyW, bodyH, contentW)
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -701,7 +701,7 @@ func TestTUIScrollbar_VerticalOnlyAlmostFillsWidth(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -742,8 +742,8 @@ func TestTUIScrollbar_BottomContentVisible(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 10
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 8
 
 	// Content that overflows vertically but fits horizontally
 	// This should show vertical scrollbar but NOT horizontal
@@ -752,7 +752,7 @@ func TestTUIScrollbar_BottomContentVisible(t *testing.T) {
 
 	// Frame 1
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -763,7 +763,7 @@ func TestTUIScrollbar_BottomContentVisible(t *testing.T) {
 
 	// Frame 2
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		for i := 0; i < contentRows; i++ {
 			ui.LayoutRow(1, []int{contentW}, 1)
 			ui.Label("X")
@@ -803,9 +803,8 @@ func TestTUIScrollbar_MutualDependencyCorrect(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 20, 10
-	bodyW := windowW - style.BorderWidth*2                   // 18
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 8
+	// Window size = body size (content area). System adds chrome.
+	bodyW, bodyH := 18, 8
 
 	// Content that overflows vertically AND barely overflows horizontally after
 	// vertical scrollbar appears
@@ -814,11 +813,11 @@ func TestTUIScrollbar_MutualDependencyCorrect(t *testing.T) {
 	// So contentW + 2 > 18 - 1 = 17, contentW > 15
 	contentW := 16 // Just overflows: 16 + 2 = 18 > 17
 
-	t.Logf("Window: %dx%d, Body: %dx%d, contentW: %d", windowW, windowH, bodyW, bodyH, contentW)
+	t.Logf("Body: %dx%d, contentW: %d", bodyW, bodyH, contentW)
 
 	drawFrame := func() {
 		ui.BeginFrame()
-		if ui.BeginWindowOpt("Test", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+		if ui.BeginWindowOpt("Test", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 			for i := 0; i < contentRows; i++ {
 				ui.LayoutRow(1, []int{contentW}, 1)
 				ui.Label("X")
@@ -859,24 +858,21 @@ func TestTUIScrollbar_MutualDependencyCorrect(t *testing.T) {
 
 // TestTUIScrollbar_BoxTestScenario mirrors the Box Test window exactly to verify
 // that content is fully visible when scrolled to max with both scrollbars present.
-// Box Test: window 22x7, label + two 10x3 boxes side by side.
+// Box Test: body 20x5, label + two 10x3 boxes side by side.
 func TestTUIScrollbar_BoxTestScenario(t *testing.T) {
 	style := TUIStyle()
 	ui := New(Config{Style: style})
 
-	windowW, windowH := 22, 7
-
-	// Calculate body dimensions
+	// Window size = body size (content area). System adds chrome.
 	// TUI: titleHeight=1, borderWidth=1, scrollbarSize=1
-	bodyW := windowW - style.BorderWidth*2                   // 22 - 2 = 20
-	bodyH := windowH - style.TitleHeight - style.BorderWidth // 7 - 1 - 1 = 5
+	bodyW, bodyH := 20, 5
 
-	t.Logf("Window: %dx%d, Body: %dx%d", windowW, windowH, bodyW, bodyH)
+	t.Logf("Body: %dx%d", bodyW, bodyH)
 	t.Logf("Style: padding=%v, spacing=%d", style.Padding, style.Spacing)
 
 	// Frame 1: Create window with content
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("BoxTest", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("BoxTest", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		// Label row
 		ui.LayoutRow(1, []int{-1}, 1)
 		ui.Label("Box drawing:")
@@ -893,7 +889,7 @@ func TestTUIScrollbar_BoxTestScenario(t *testing.T) {
 
 	// Frame 2: Let scrollbars calculate
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("BoxTest", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("BoxTest", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		ui.LayoutRow(1, []int{-1}, 1)
 		ui.Label("Box drawing:")
 		ui.LayoutRow(2, []int{10, 10}, 3)
@@ -933,7 +929,7 @@ func TestTUIScrollbar_BoxTestScenario(t *testing.T) {
 
 	// Frame 3: Let scroll get clamped
 	ui.BeginFrame()
-	if ui.BeginWindowOpt("BoxTest", types.Rect{X: 0, Y: 0, W: windowW, H: windowH}, OptNoResize) {
+	if ui.BeginWindowOpt("BoxTest", bodyRect(0, 0, bodyW, bodyH), OptNoResize) {
 		ui.LayoutRow(1, []int{-1}, 1)
 		ui.Label("Box drawing:")
 		ui.LayoutRow(2, []int{10, 10}, 3)

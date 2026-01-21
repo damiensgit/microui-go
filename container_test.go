@@ -39,10 +39,12 @@ func TestGetContainer(t *testing.T) {
 
 func TestContainerMethods(t *testing.T) {
 	ui := New(Config{})
+	style := ui.Style()
 	ui.BeginFrame()
 
-	rect := types.Rect{X: 10, Y: 20, W: 400, H: 300}
-	ui.BeginWindow("TestWindow", rect)
+	// Window size = body size (content area). System adds chrome.
+	bodyRect := types.Rect{X: 10, Y: 20, W: 400, H: 300}
+	ui.BeginWindow("TestWindow", bodyRect)
 
 	cnt := ui.GetCurrentContainer()
 	if cnt == nil {
@@ -54,12 +56,19 @@ func TestContainerMethods(t *testing.T) {
 		t.Error("Container ID should not be zero")
 	}
 
-	// Test Rect
-	if cnt.Rect() != rect {
-		t.Errorf("Container Rect mismatch: got %v, want %v", cnt.Rect(), rect)
+	// Test Rect - container rect includes chrome (title, borders)
+	// GUIStyle: BorderWidth=0, TitleHeight=24
+	expectedRect := types.Rect{
+		X: bodyRect.X,
+		Y: bodyRect.Y,
+		W: bodyRect.W + style.BorderWidth*2,
+		H: bodyRect.H + style.TitleHeight + style.BorderWidth,
+	}
+	if cnt.Rect() != expectedRect {
+		t.Errorf("Container Rect mismatch: got %v, want %v", cnt.Rect(), expectedRect)
 	}
 
-	// Test SetRect
+	// Test SetRect - sets the total window rect (including chrome)
 	newRect := types.Rect{X: 50, Y: 60, W: 200, H: 150}
 	cnt.SetRect(newRect)
 	if cnt.Rect() != newRect {

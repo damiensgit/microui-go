@@ -113,6 +113,13 @@ func (u *UI) KeyUp(key Key) {
 	u.mu.Unlock()
 }
 
+// IsKeyDown returns true if the specified key is currently held down.
+func (u *UI) IsKeyDown(key Key) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.input.KeyDown[key]
+}
+
 // TextChar handles single character text input.
 func (u *UI) TextChar(r rune) {
 	u.mu.Lock()

@@ -14,9 +14,9 @@ import (
 type Renderer struct {
 	target   *ebiten.Image
 	theme    *Theme
-	font     *Font
-	fontBold *Font
-	fontMono *Font
+	font     FontFace
+	fontBold FontFace
+	fontMono FontFace
 	clipRect types.Rect
 }
 
@@ -26,17 +26,18 @@ func NewRenderer(theme *Theme) (*Renderer, error) {
 		theme = DarkTheme()
 	}
 
-	font, err := NewFont(FontSans, 16)
+	// QuinqueFive at 10px - pixel-perfect
+	font, err := NewFont(FontQuinque, 10)
 	if err != nil {
 		return nil, err
 	}
 
-	fontBold, err := NewFont(FontSansBold, 16)
+	fontBold, err := NewFont(FontQuinque, 10)
 	if err != nil {
 		return nil, err
 	}
 
-	fontMono, err := NewFont(FontMono, 14)
+	fontMono, err := NewFont(FontQuinque, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -175,9 +176,18 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 	const patternSize = 7
 	iconSize := patternSize * scale
 
-	// Center the icon in the rect
-	offsetX := rect.X + (rect.W-iconSize)/2
-	offsetY := rect.Y + (rect.H-iconSize)/2
+	// Position icon within rect
+	var offsetX, offsetY int
+	if id == microui.IconResize {
+		// Resize gripper: anchor to bottom-right corner, semi-transparent
+		offsetX = rect.X + rect.W - iconSize
+		offsetY = rect.Y + rect.H - iconSize
+		c = color.RGBA{R: 200, G: 200, B: 200, A: 128}
+	} else {
+		// Other icons: center in rect
+		offsetX = rect.X + (rect.W-iconSize)/2
+		offsetY = rect.Y + (rect.H-iconSize)/2
+	}
 
 	// Helper to draw a single scaled pixel (scale x scale block)
 	px := func(x, y int) {
@@ -264,20 +274,20 @@ func (r *Renderer) DrawIcon(id int, rect types.Rect, c color.Color) {
 		px(3, 3)
 
 	case microui.IconResize:
-		// Resize gripper (diagonal dots in bottom-right):
+		// Resize gripper (diagonal dots in bottom-right corner):
 		// . . . . . . .
 		// . . . . . . .
-		// . . . . . X .
+		// . . . . . . X
 		// . . . . . . .
-		// . . . X . X .
+		// . . . . X . X
 		// . . . . . . .
-		// . X . X . X .
-		px(5, 2)
-		px(3, 4)
-		px(5, 4)
-		px(1, 6)
-		px(3, 6)
-		px(5, 6)
+		// . . X . X . X
+		px(6, 2)
+		px(4, 4)
+		px(6, 4)
+		px(2, 6)
+		px(4, 6)
+		px(6, 6)
 
 	default:
 		// Unknown icon - draw a filled box for visibility
@@ -788,12 +798,12 @@ func (r *Renderer) fillRect(x, y, w, h int, c color.Color) {
 		return
 	}
 
-	vector.DrawFilledRect(r.target, float32(x), float32(y), float32(w), float32(h), c, false)
+	vector.FillRect(r.target, float32(x), float32(y), float32(w), float32(h), c, false)
 }
 
-// fontAdapter wraps Font to implement types.Font.
+// fontAdapter wraps FontFace to implement types.Font.
 type fontAdapter struct {
-	font *Font
+	font FontFace
 }
 
 func (f *fontAdapter) Width(text string) int {
@@ -812,4 +822,31 @@ func (r *Renderer) Render(ui *microui.UI) {
 // GetClipRect returns the current clip rectangle as an image.Rectangle.
 func (r *Renderer) GetClipRect() image.Rectangle {
 	return image.Rect(r.clipRect.X, r.clipRect.Y, r.clipRect.X+r.clipRect.W, r.clipRect.Y+r.clipRect.H)
+}
+
+// DrawFontSample draws text with a specific font style and size for preview purposes.
+// This creates a temporary font - use sparingly (for UI previews, not every frame rendering).
+func (r *Renderer) DrawFontSample(text string, x, y int, style FontStyle, size float64, c color.Color) {
+	if r.target == nil || text == "" {
+		return
+	}
+	font, err := NewFont(style, size)
+	if err != nil {
+		return
+	}
+	font.Draw(r.target, text, x, y, c)
+}
+
+// FontStyleName returns a human-readable name for the font style.
+func FontStyleName(style FontStyle) string {
+	switch style {
+	case FontSans:
+		return "Sans"
+	case FontSansBold:
+		return "Bold"
+	case FontMono:
+		return "Mono"
+	default:
+		return "Unknown"
+	}
 }

@@ -16,6 +16,7 @@ type Style struct {
 	Spacing         int        // Space between controls
 	Indent          int        // Tree/header indent
 	TitleHeight     int        // Window title bar height
+	TitlePadding    int        // Title text inset (independent of content padding)
 	ScrollbarSize   int        // Scrollbar track width
 	ScrollbarMargin int        // Visible margin around scrollbar track
 	ScrollbarBorder int        // Visual border width that scrollbar must clear
@@ -48,6 +49,7 @@ func GUIStyle() Style {
 		Spacing:       4,                        // 4 pixels between controls
 		Indent:        24,                       // 24 pixels for tree indentation
 		TitleHeight:   24,                       // 24 pixel title bar
+		TitlePadding:  5,                        // 5 pixel title text inset
 		ScrollbarSize: 12,                       // 12 pixel scrollbar width
 		ThumbSize:     8,                        // 8 pixel slider thumb
 		// BorderWidth: 0 (default) - GUI borders are expanded outside, no content inset needed
@@ -65,6 +67,7 @@ func TUIStyle() Style {
 		Spacing:       1,                       // 1 cell between controls
 		Indent:        2,                       // 2 cells for tree indentation
 		TitleHeight:   1,                       // 1 cell title bar
+		TitlePadding:  1,                       // 1 cell title text inset
 		ScrollbarSize: 1,                       // 1 cell scrollbar width
 		ThumbSize:     1,                       // 1 cell slider thumb
 		BorderWidth:   1,                       // 1 cell border - content inset for on-edge borders

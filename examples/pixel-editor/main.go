@@ -31,6 +31,9 @@ type Game struct {
 	demoSlider  float64
 	demoNumber  float64
 	demoTextBuf []byte
+
+	// Font preview - body rect saved during buildUI for drawing after render
+	fontPreviewRect types.Rect
 }
 
 func NewGame() (*Game, error) {
@@ -49,7 +52,7 @@ func NewGame() (*Game, error) {
 	style.ScrollbarSize = theme.StyleScrollbarWidth()
 	style.ScrollbarMargin = theme.StyleScrollbarMargin()
 	style.ScrollbarBorder = theme.StyleScrollbarBorder()
-	style.WindowBorder = theme.StyleWindowBorder()     // For content clipping
+	style.WindowBorder = theme.StyleWindowBorder() // Visual border - body is inside this
 	style.ControlMargin = theme.StyleControlMargin()   // Control border width (clip boundary)
 	style.ControlPadding = theme.StyleControlPadding() // Additional padding inside border
 	style.Spacing = theme.StyleSpacing()
@@ -112,6 +115,11 @@ func (g *Game) Update() error {
 	}
 
 	// Key handling
+	if ebiten.IsKeyPressed(ebiten.KeyShift) {
+		g.ui.KeyDown(microui.KeyShift)
+	} else {
+		g.ui.KeyUp(microui.KeyShift)
+	}
 	if ebiten.IsKeyPressed(ebiten.KeyBackspace) {
 		g.ui.KeyDown(microui.KeyBackspace)
 	} else {
@@ -222,14 +230,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.EndFrame()
 
 	g.renderer.Render(g.ui)
+
+	// Draw font preview after render (bypasses UI clipping)
+	if g.fontPreviewRect.W > 0 {
+		g.drawFontPreviewContent()
+	}
 }
 
 func (g *Game) buildUI() {
 	// Toolbar options: always on top + can snap + can be snapped to + no resize
 	toolbarOpts := microui.OptNoResize | microui.OptAlwaysOnTop | snap.OptSnapToEdge | snap.OptSnapTarget
 
-	// Tools window
-	if g.ui.BeginWindowOpt("Tools", types.Rect{X: 10, Y: 10, W: 120, H: 200}, toolbarOpts) {
+	// Tools window (size = content area, chrome added automatically)
+	// Content: 3 buttons + label + slider, need enough height for all
+	if g.ui.BeginWindowOpt("Tools", types.Rect{X: 10, Y: 10, W: 140, H: 180}, toolbarOpts) {
 		g.ui.LayoutRow(1, []int{-1}, 0)
 
 		if g.ui.ToggleButton("Pencil", g.editor.tool == ToolPencil) {
@@ -250,21 +264,30 @@ func (g *Game) buildUI() {
 		g.ui.EndWindow()
 	}
 
-	// Color palette window
-	if g.ui.BeginWindowOpt("Palette", types.Rect{X: 10, Y: 220, W: 120, H: 350}, toolbarOpts) {
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label("Colors:")
+	// Color palette window - compact grid, edge-to-edge, no margin
+	// 4 cols × 8 rows = 32 colors, 24×24 screen px each (larger boxes)
+	paletteCols := 4
+	paletteRows := 8
+	cellSize := 24 // Larger color boxes
+	gridW := paletteCols * cellSize
+	gridH := paletteRows * cellSize
+	// Body exactly fits the grid - colors fill edge to edge
+	g.ui.PushPadding(types.Vec2{0, 0}) // Zero padding for edge-to-edge content
+	if g.ui.BeginWindowOpt("Palette", types.Rect{X: 10, Y: 240, W: gridW, H: gridH}, toolbarOpts) {
+		// Get body position for absolute drawing
+		cnt := g.ui.GetCurrentContainer()
+		body := cnt.Body()
 
-		// Draw color palette as a grid of buttons
-		cols := 4
-		btnSize := 22
-		g.ui.LayoutRow(cols, []int{btnSize, btnSize, btnSize, btnSize}, btnSize)
-
+		// Draw directly to body without layout system (avoids contentSize tracking)
 		for i, c := range g.editor.palette {
-			g.ui.PushID(string(rune(i)))
-
-			// Draw color button
-			rect := g.ui.LayoutNext()
+			col := i % paletteCols
+			row := i / paletteCols
+			rect := types.Rect{
+				X: body.X + col*cellSize,
+				Y: body.Y + row*cellSize,
+				W: cellSize,
+				H: cellSize,
+			}
 			g.ui.DrawRect(rect, c)
 
 			// Check for click
@@ -272,31 +295,30 @@ func (g *Game) buildUI() {
 				g.editor.SetColor(c)
 			}
 
-			// Draw selection indicator
+			// Draw selection indicator: black+white double border (visible on ANY color)
 			if colorsEqual(c, g.editor.currentColor) {
-				g.ui.DrawBox(rect, color.White)
+				px := g.renderer.Theme().Px(1) // 1 logical pixel in screen pixels
+				black := color.RGBA{0, 0, 0, 255}
+				white := color.RGBA{255, 255, 255, 255}
+				// Outer: black border
+				g.ui.DrawBox(rect, black)
+				// Inner: white border (1 logical pixel inside the black)
+				inner := types.Rect{X: rect.X + px, Y: rect.Y + px, W: rect.W - px*2, H: rect.H - px*2}
+				g.ui.DrawBox(inner, white)
 			}
-
-			g.ui.PopID()
 		}
-
-		g.ui.LayoutRow(1, []int{-1}, 0)
-		g.ui.Label("Current:")
-		g.ui.LayoutRow(1, []int{-1}, 30)
-		rect := g.ui.LayoutNext()
-		g.ui.DrawRect(rect, g.editor.currentColor)
-
 		g.ui.EndWindow()
 	}
+	g.ui.PopPadding()
 
 	// Canvas window
-	if g.ui.BeginWindowOpt("Canvas", types.Rect{X: 140, Y: 10, W: 550, H: 550}, 0) {
+	if g.ui.BeginWindowOpt("Canvas", types.Rect{X: 140, Y: 10, W: 540, H: 515}, 0) {
 		g.drawCanvas()
 		g.ui.EndWindow()
 	}
 
-	// Info window
-	if g.ui.BeginWindowOpt("Info", types.Rect{X: 700, Y: 10, W: 190, H: 220}, toolbarOpts) {
+	// Info window - sized to fit content without scrollbars
+	if g.ui.BeginWindowOpt("Info", types.Rect{X: 700, Y: 10, W: 190, H: 200}, toolbarOpts) {
 		g.ui.LayoutRow(2, []int{60, -1}, 0)
 		g.ui.Label("Size:")
 		g.ui.Label("32 x 32")
@@ -321,8 +343,18 @@ func (g *Game) buildUI() {
 		g.ui.EndWindow()
 	}
 
+	// Font Preview window - shows different font styles and sizes
+	// Save body rect for drawing after render (to bypass clipping)
+	if g.ui.BeginWindowOpt("Fonts", types.Rect{X: 10, Y: 450, W: 400, H: 240}, 0) {
+		cnt := g.ui.GetCurrentContainer()
+		g.fontPreviewRect = cnt.Body()
+		g.ui.EndWindow()
+	} else {
+		g.fontPreviewRect = types.Rect{} // Window closed
+	}
+
 	// Controls Demo window - showcases all UI controls
-	if g.ui.BeginWindowOpt("Controls Demo", types.Rect{X: 700, Y: 240, W: 190, H: 320}, 0) {
+	if g.ui.BeginWindowOpt("Controls Demo", types.Rect{X: 700, Y: 260, W: 190, H: 300}, 0) {
 		// Buttons section
 		g.ui.LayoutRow(1, []int{-1}, 0)
 		g.ui.Label("Buttons:")
@@ -510,6 +542,58 @@ func (g *Game) drawCanvas() {
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
+}
+
+func (g *Game) drawFontPreviewContent() {
+	// Use saved body rect from buildUI
+	body := g.fontPreviewRect
+
+	// Colors
+	textColor := color.RGBA{220, 220, 220, 255}
+	labelColor := color.RGBA{150, 150, 150, 255}
+	headerColor := color.RGBA{100, 180, 255, 255}
+
+	// Font styles to preview
+	styles := []retro.FontStyle{retro.FontSans, retro.FontM6x11, retro.FontM5x7}
+	styleNames := []string{"Pixeloid", "m6x11", "m5x7"}
+
+	// Sizes to preview
+	// Pixeloid: clean at 9, 18, 27
+	// m6x11/m5x7: clean at 16, 32, 48
+	sizes := []float64{16, 18, 32}
+
+	// Column positions
+	col1 := body.X + 8   // Size label
+	col2 := body.X + 50  // Pixeloid
+	col3 := body.X + 170 // m6x11
+	col4 := body.X + 290 // m5x7
+
+	// Draw column headers
+	y := body.Y + 4
+	g.renderer.DrawFontSample("Size", col1, y, retro.FontMono, 12, headerColor)
+	g.renderer.DrawFontSample(styleNames[0], col2, y, retro.FontMono, 12, headerColor)
+	g.renderer.DrawFontSample(styleNames[1], col3, y, retro.FontMono, 12, headerColor)
+	g.renderer.DrawFontSample(styleNames[2], col4, y, retro.FontMono, 12, headerColor)
+	y += 20
+
+	// Sample text
+	sampleText := "Abc123"
+
+	// Draw each size row
+	for _, size := range sizes {
+		// Size label
+		label := itoa(int(size)) + "px"
+		g.renderer.DrawFontSample(label, col1, y, retro.FontMono, 12, labelColor)
+
+		// Each style
+		cols := []int{col2, col3, col4}
+		for i, style := range styles {
+			g.renderer.DrawFontSample(sampleText, cols[i], y, style, size, textColor)
+		}
+
+		// Variable row height based on font size
+		y += int(size) + 8
+	}
 }
 
 func colorsEqual(a, b color.Color) bool {

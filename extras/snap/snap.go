@@ -53,11 +53,16 @@ type StaticConfig struct {
 
 // Handler returns a window drag handler that implements snap-to-edge.
 // Pass this to microui.Config.OnWindowDrag.
+// Hold Shift while dragging to temporarily disable snapping.
 func Handler(cfg Config) func(*microui.UI, *microui.Container) {
 	if cfg.Threshold == 0 {
 		cfg.Threshold = 20
 	}
 	return func(ui *microui.UI, cnt *microui.Container) {
+		// Shift bypasses snapping for free placement
+		if ui.IsKeyDown(microui.KeyShift) {
+			return
+		}
 		var screenW, screenH int
 		if cfg.ScreenSize != nil {
 			screenW, screenH = cfg.ScreenSize()
@@ -99,68 +104,33 @@ func applySnapToEdge(ui *microui.UI, cnt *microui.Container, threshold, screenW,
 
 		otherRect := other.Rect()
 
-		// Snap to right edge of other window (our left aligns with their right)
-		if !snappedX && abs(rect.X-(otherRect.X+otherRect.W)) < threshold {
-			if rect.Y < otherRect.Y+otherRect.H && rect.Y+rect.H > otherRect.Y {
-				rect.X = otherRect.X + otherRect.W
-				snappedX = true
-			}
+		// Check if windows have vertical overlap (for horizontal snapping)
+		vOverlap := rect.Y < otherRect.Y+otherRect.H && rect.Y+rect.H > otherRect.Y
+		// Check if windows have horizontal overlap (for vertical snapping)
+		hOverlap := rect.X < otherRect.X+otherRect.W && rect.X+rect.W > otherRect.X
+
+		// Snap our left edge to their right edge (dock to right side)
+		if !snappedX && vOverlap && abs(rect.X-(otherRect.X+otherRect.W)) < threshold {
+			rect.X = otherRect.X + otherRect.W
+			snappedX = true
 		}
 
-		// Snap to left edge of other window (our right aligns with their left)
-		if !snappedX && abs((rect.X+rect.W)-otherRect.X) < threshold {
-			if rect.Y < otherRect.Y+otherRect.H && rect.Y+rect.H > otherRect.Y {
-				rect.X = otherRect.X - rect.W
-				snappedX = true
-			}
+		// Snap our right edge to their left edge (dock to left side)
+		if !snappedX && vOverlap && abs((rect.X+rect.W)-otherRect.X) < threshold {
+			rect.X = otherRect.X - rect.W
+			snappedX = true
 		}
 
-		// Snap to bottom edge of other window (our top aligns with their bottom)
-		if !snappedY && abs(rect.Y-(otherRect.Y+otherRect.H)) < threshold {
-			if rect.X < otherRect.X+otherRect.W && rect.X+rect.W > otherRect.X {
-				rect.Y = otherRect.Y + otherRect.H
-				snappedY = true
-			}
+		// Snap our top edge to their bottom edge (dock below)
+		if !snappedY && hOverlap && abs(rect.Y-(otherRect.Y+otherRect.H)) < threshold {
+			rect.Y = otherRect.Y + otherRect.H
+			snappedY = true
 		}
 
-		// Snap to top edge of other window (our bottom aligns with their top)
-		if !snappedY && abs((rect.Y+rect.H)-otherRect.Y) < threshold {
-			if rect.X < otherRect.X+otherRect.W && rect.X+rect.W > otherRect.X {
-				rect.Y = otherRect.Y - rect.H
-				snappedY = true
-			}
-		}
-
-		// Align left edges
-		if !snappedX && abs(rect.X-otherRect.X) < threshold {
-			if rect.Y < otherRect.Y+otherRect.H+threshold && rect.Y+rect.H > otherRect.Y-threshold {
-				rect.X = otherRect.X
-				snappedX = true
-			}
-		}
-
-		// Align right edges
-		if !snappedX && abs((rect.X+rect.W)-(otherRect.X+otherRect.W)) < threshold {
-			if rect.Y < otherRect.Y+otherRect.H+threshold && rect.Y+rect.H > otherRect.Y-threshold {
-				rect.X = otherRect.X + otherRect.W - rect.W
-				snappedX = true
-			}
-		}
-
-		// Align top edges
-		if !snappedY && abs(rect.Y-otherRect.Y) < threshold {
-			if rect.X < otherRect.X+otherRect.W+threshold && rect.X+rect.W > otherRect.X-threshold {
-				rect.Y = otherRect.Y
-				snappedY = true
-			}
-		}
-
-		// Align bottom edges
-		if !snappedY && abs((rect.Y+rect.H)-(otherRect.Y+otherRect.H)) < threshold {
-			if rect.X < otherRect.X+otherRect.W+threshold && rect.X+rect.W > otherRect.X-threshold {
-				rect.Y = otherRect.Y + otherRect.H - rect.H
-				snappedY = true
-			}
+		// Snap our bottom edge to their top edge (dock above)
+		if !snappedY && hOverlap && abs((rect.Y+rect.H)-otherRect.Y) < threshold {
+			rect.Y = otherRect.Y - rect.H
+			snappedY = true
 		}
 
 		return true // continue iteration

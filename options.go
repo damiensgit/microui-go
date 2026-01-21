@@ -18,7 +18,6 @@ const (
 	OptClosed                     // Start closed/collapsed
 	OptExpanded                   // Start expanded (default for headers)
 	OptAlwaysOnTop                // Window: always render on top of other windows
-	OptNoControlInset             // Text: don't apply control margin/padding (for labels, titles)
 )
 
 // Response flags returned by controls

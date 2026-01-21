@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/user/microui-go"
+	"github.com/user/microui-go/extras/snap"
 	"github.com/user/microui-go/render/retro"
 	"github.com/user/microui-go/types"
 )
@@ -34,21 +35,36 @@ type Game struct {
 }
 
 func NewGame() (*Game, error) {
-	// Create retro renderer with mint theme
-	renderer, err := retro.NewRenderer(retro.MintTheme())
+	// Create retro renderer with pixel art editor theme
+	theme := retro.PixelTheme()
+	renderer, err := retro.NewRenderer(theme)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create UI with retro style
+	// Create UI style from theme - all layout values defined in theme.go
 	style := microui.GUIStyle()
 	style.Font = renderer.Font()
+	style.TitleHeight = theme.StyleTitleHeight()
+	style.Size = types.Vec2{X: 68, Y: theme.StyleControlHeight()}
+	style.ScrollbarSize = theme.StyleScrollbarWidth()
+	style.ScrollbarMargin = theme.StyleScrollbarMargin()
+	style.ScrollbarBorder = theme.StyleScrollbarBorder()
+	style.WindowBorder = theme.StyleWindowBorder()       // For content clipping
+	style.ControlMargin = theme.StyleControlMargin()     // Control border width (clip boundary)
+	style.ControlPadding = theme.StyleControlPadding()   // Additional padding inside border
+	style.Spacing = theme.StyleSpacing()
+	style.ThumbSize = theme.StyleThumbSize()
+	padX, padY := theme.StylePadding()
+	style.Padding = types.Vec2{X: padX, Y: padY}
 
 	ui := microui.New(microui.Config{
-		Style:        style,
-		DrawFrame:    renderer.DrawFrame,
-		ScreenWidth:  screenWidth,
-		ScreenHeight: screenHeight,
+		Style:     style,
+		DrawFrame: renderer.DrawFrame,
+		OnWindowDrag: snap.Handler(snap.Config{
+			Threshold:  20,
+			ScreenSize: ebiten.WindowSize, // Dynamic - updates on resize
+		}),
 	})
 
 	// Create editor with 32x32 canvas
@@ -211,7 +227,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) buildUI() {
 	// Toolbar options: always on top + can snap + can be snapped to + no resize
-	toolbarOpts := microui.OptNoResize | microui.OptAlwaysOnTop | microui.OptSnapToEdge | microui.OptSnapTarget
+	toolbarOpts := microui.OptNoResize | microui.OptAlwaysOnTop | snap.OptSnapToEdge | snap.OptSnapTarget
 
 	// Tools window
 	if g.ui.BeginWindowOpt("Tools", types.Rect{X: 10, Y: 10, W: 120, H: 200}, toolbarOpts) {

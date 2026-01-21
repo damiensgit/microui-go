@@ -1,10 +1,5 @@
 package microui
 
-import (
-	"log"
-	"sync/atomic"
-)
-
 // PoolItem represents an item in a microui-style pool.
 // This is compatible with the original microui mu_PoolItem struct.
 type PoolItem struct {
@@ -12,67 +7,9 @@ type PoolItem struct {
 	LastUpdate int // Frame number when last updated
 }
 
-// growPool provides fixed initial capacity with graceful growth.
-type growPool[T any] struct {
-	fixed []poolSlot[T]
-	grow  []poolSlot[T]
-	max   int
-}
-
-type poolSlot[T any] struct {
-	value T
-	used  atomic.Bool
-}
-
-// Init initializes the pool with fixed size and maximum size.
-func (p *growPool[T]) Init(fixedSize, maxSize int) {
-	p.fixed = make([]poolSlot[T], fixedSize)
-	p.max = maxSize
-}
-
-// Alloc returns a pointer to a slot in the pool.
-// Fixed pool is used first (zero alloc), then grows with warning.
-func (p *growPool[T]) Alloc() *T {
-	// Try fixed pool first (zero alloc)
-	for i := range p.fixed {
-		if !p.fixed[i].used.Load() {
-			if p.fixed[i].used.CompareAndSwap(false, true) {
-				return &p.fixed[i].value
-			}
-		}
-	}
-
-	// Check if we can grow
-	currentTotal := len(p.fixed) + len(p.grow)
-	if currentTotal >= p.max {
-		log.Panicf("pool exhausted: %d >= %d", currentTotal, p.max)
-	}
-
-	// Fall back to growth with warning
-	slot := poolSlot[T]{used: atomic.Bool{}}
-	slot.used.Store(true)
-	p.grow = append(p.grow, slot)
-	if len(p.grow) == 1 {
-		log.Printf("warning: microui pool started growing beyond fixed size")
-	}
-	return &p.grow[len(p.grow)-1].value
-}
-
-// Len returns the number of allocated slots.
-func (p *growPool[T]) Len() int {
-	count := 0
-	for i := range p.fixed {
-		if p.fixed[i].used.Load() {
-			count++
-		}
-	}
-	return count + len(p.grow)
-}
-
-// growStack is similar to growPool but stack-ordered.
+// growStack is a simple stack with pre-allocated capacity.
 type growStack[T any] struct {
 	items []T
-	count int
 }
 
 func (s *growStack[T]) Init(capacity int) {
@@ -81,35 +18,34 @@ func (s *growStack[T]) Init(capacity int) {
 
 func (s *growStack[T]) Push(v T) {
 	s.items = append(s.items, v)
-	s.count++
 }
 
 func (s *growStack[T]) Pop() T {
-	if s.count == 0 {
+	n := len(s.items)
+	if n == 0 {
 		var zero T
 		return zero
 	}
-	s.count--
-	v := s.items[s.count]
-	s.items = s.items[:s.count]
+	v := s.items[n-1]
+	s.items = s.items[:n-1]
 	return v
 }
 
 func (s *growStack[T]) Peek() T {
-	if s.count == 0 {
+	n := len(s.items)
+	if n == 0 {
 		var zero T
 		return zero
 	}
-	return s.items[s.count-1]
+	return s.items[n-1]
 }
 
 func (s *growStack[T]) Len() int {
-	return s.count
+	return len(s.items)
 }
 
 func (s *growStack[T]) Reset() {
 	s.items = s.items[:0]
-	s.count = 0
 }
 
 // PoolInit initializes a pool slot for the given ID.

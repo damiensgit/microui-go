@@ -269,19 +269,19 @@ func (m *Model) writeLog(text string) {
 
 // tuiDrawFrame is a custom DrawFrame for TUI that draws backgrounds and window borders.
 // Content area is already inset by BorderWidth in core, so border is drawn ON the rect edge.
-func tuiDrawFrame(ui *microui.UI, rect types.Rect, colorID int) {
+func tuiDrawFrame(ui *microui.UI, info microui.FrameInfo) {
 	// Draw the filled background
-	c := ui.GetColorByID(colorID)
-	ui.DrawRect(rect, c)
+	c := ui.GetColor(info.Kind, info.State)
+	ui.DrawRect(info.Rect, c)
 
 	// Only draw border for window backgrounds
-	if colorID == microui.ColorWindowBG {
+	if info.Kind == microui.FrameWindow {
 		borderColor := ui.GetColorByID(microui.ColorBorder)
 		if borderColor != nil {
 			_, _, _, a := borderColor.RGBA()
 			if a > 0 {
 				// Draw border ON the rect edge (content is inset by BorderWidth)
-				ui.DrawBox(rect, borderColor)
+				ui.DrawBox(info.Rect, borderColor)
 			}
 		}
 	}

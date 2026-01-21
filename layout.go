@@ -2,11 +2,33 @@ package microui
 
 import "github.com/user/microui-go/types"
 
+// Coordinate System Convention:
+//
+// ABSOLUTE: Screen coordinates (0,0 = top-left of screen)
+//   - Layout.body
+//   - Layout.max
+//   - All Rect values in commands
+//
+// RELATIVE: Offset from body origin
+//   - Layout.position
+//   - Layout.nextRow (relative to body.Y)
+//
+// Conversion: absolute = body.{X,Y} + relative
+
 const (
 	nextTypeNone     = 0
 	nextTypeAbsolute = 1
 	nextTypeRelative = 2
 )
+
+// layoutBoundsSentinel is the initial value for max bounds tracking.
+// Any real coordinate will exceed this, ensuring first update wins.
+const layoutBoundsSentinel = -0x1000000
+
+// pixelInclusiveBoundary adjusts for inclusive pixel boundaries.
+// When a rect spans from X to X+W, the rightmost pixel is at X+W-1.
+// This +1 ensures negative widths (fill remaining) calculate correctly.
+const pixelInclusiveBoundary = 1
 
 // ColumnLayout stores state for a layout column.
 type ColumnLayout struct {
@@ -16,17 +38,18 @@ type ColumnLayout struct {
 // Layout represents current layout state.
 // Position is RELATIVE to body; body offset is added in LayoutNext.
 type Layout struct {
-	body      types.Rect // Container body rect (absolute coordinates)
-	position  types.Vec2 // Current position RELATIVE to body
-	size      types.Vec2 // Current item size
-	max       types.Vec2 // Maximum content extent (absolute coordinates)
-	widths    []int      // Column widths (stored from LayoutRow)
-	items     int        // Number of items in row
-	itemIndex int        // Current item index
-	nextRow   int        // Y position for next row (relative to body)
-	indent    int        // Current indentation
-	next      types.Rect // Override rect for next LayoutNext call
-	nextType  int        // 0=none, 1=absolute, 2=relative (body-relative)
+	body            types.Rect // Container body rect (absolute coordinates)
+	position        types.Vec2 // Current position RELATIVE to body
+	size            types.Vec2 // Current item size
+	max             types.Vec2 // Maximum content extent (absolute coordinates)
+	widths          []int      // Column widths (stored from LayoutRow)
+	items           int        // Number of items in row
+	itemIndex       int        // Current item index
+	nextRow         int        // Y position for next row (relative to body)
+	indent          int        // Current indentation
+	next            types.Rect // Override rect for next LayoutNext call
+	nextType        int        // 0=none, 1=absolute, 2=relative (body-relative)
+	minContentWidth int        // Minimum width for content (prevents shrinking)
 
 	// Go extensions: explicit size overrides (cleared after each use)
 	sizeOverrideW int // Width override from LayoutWidth (0 = not set)
@@ -91,10 +114,16 @@ func (u *UI) LayoutNext() types.Rect {
 			res.H = style.Size.Y + style.Padding.Y*2
 		}
 		if res.W < 0 {
-			res.W += layout.body.W - res.X + 1
+			// Use the larger of body width or minimum content width
+			// This prevents controls from shrinking below established content
+			effectiveWidth := layout.body.W
+			if layout.minContentWidth > effectiveWidth {
+				effectiveWidth = layout.minContentWidth
+			}
+			res.W += effectiveWidth - res.X + pixelInclusiveBoundary
 		}
 		if res.H < 0 {
-			res.H += layout.body.H - res.Y + 1
+			res.H += layout.body.H - res.Y + pixelInclusiveBoundary
 		}
 		layout.itemIndex++
 	}
@@ -123,18 +152,19 @@ func (u *UI) getLayout() *Layout {
 	if u.layoutStack.Len() == 0 {
 		layout := Layout{
 			body:    u.currentWindowRect,
-			max:     types.Vec2{X: -0x1000000, Y: -0x1000000},
+			max:     types.Vec2{X: layoutBoundsSentinel, Y: layoutBoundsSentinel},
 		}
 		if layout.body.Empty() {
 			layout.body = types.Rect{X: 0, Y: 0, W: 800, H: 600}
 		}
 		u.layoutStack.Push(layout)
 	}
-	return &u.layoutStack.items[u.layoutStack.count-1]
+	return &u.layoutStack.items[len(u.layoutStack.items)-1]
 }
 
 // pushLayout pushes a new layout context for a container.
-func (u *UI) pushLayout(body types.Rect, scroll types.Vec2) {
+// minContentWidth prevents controls from shrinking below established content width.
+func (u *UI) pushLayout(body types.Rect, scroll types.Vec2, minContentWidth int) {
 	layout := Layout{
 		body: types.Rect{
 			X: body.X - scroll.X,
@@ -142,7 +172,8 @@ func (u *UI) pushLayout(body types.Rect, scroll types.Vec2) {
 			W: body.W,
 			H: body.H,
 		},
-		max: types.Vec2{X: -0x1000000, Y: -0x1000000},
+		max:             types.Vec2{X: layoutBoundsSentinel, Y: layoutBoundsSentinel},
+		minContentWidth: minContentWidth,
 	}
 	u.layoutStack.Push(layout)
 
@@ -151,7 +182,7 @@ func (u *UI) pushLayout(body types.Rect, scroll types.Vec2) {
 
 // PushLayout is the public version of pushLayout.
 func (u *UI) PushLayout(body types.Rect) {
-	u.pushLayout(body, types.Vec2{})
+	u.pushLayout(body, types.Vec2{}, 0)
 }
 
 // PopLayout pops the current layout context.
@@ -187,7 +218,7 @@ func (u *UI) LayoutSetNext(rect types.Rect, relative bool) {
 func (u *UI) LayoutBeginColumn() {
 	columnRect := u.LayoutNext()
 	u.columnStack.Push(ColumnLayout{columnRect: columnRect})
-	u.pushLayout(columnRect, types.Vec2{})
+	u.pushLayout(columnRect, types.Vec2{}, 0)
 }
 
 // LayoutEndColumn ends the current column and restores parent layout.

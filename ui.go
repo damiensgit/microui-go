@@ -36,10 +36,8 @@ type Config struct {
 	Style         Style
 	CommandBuf    int
 	InputChanSize int
-	DrawFrame     func(ui *UI, rect types.Rect, colorID int) // Custom frame drawing callback
-	ScreenWidth   int                                        // Screen width for snap-to-edge (0 = disabled)
-	ScreenHeight  int                                        // Screen height for snap-to-edge (0 = disabled)
-	SnapThreshold int                                        // Distance in pixels to trigger snap (default 20)
+	DrawFrame     func(ui *UI, info FrameInfo)    // Custom frame drawing callback with semantic type/state
+	OnWindowDrag  func(ui *UI, cnt *Container)    // Called during window drag (for snap-to-edge, etc.)
 }
 
 // UI is the main context for immediate-mode UI.
@@ -50,11 +48,9 @@ type UI struct {
 	inputCh  chan InputEvent
 
 	// Pools
-	windowPool     growPool[Window]
 	layoutStack    growStack[Layout]
 	clipStack      growStack[types.Rect]
 	idStack        growStack[ID]
-	panelStack     growStack[Panel]
 	columnStack    growStack[ColumnLayout]
 	containerStack growStack[*Container]
 
@@ -89,18 +85,14 @@ type UI struct {
 	// Window interaction state
 	dragID           ID         // ID of container being dragged
 	dragOffset       types.Vec2 // Offset from container origin to drag start point
-	dragContainer    *Container // Container being dragged (for snap-to-edge)
+	dragContainer    *Container // Container being dragged
 	resizeID         ID         // ID of container being resized
 	resizeStartRect  types.Rect // Window rect when resize started
 	resizeStartMouse types.Vec2 // Mouse position when resize started
 
-	// Screen bounds for snap-to-edge
-	screenWidth   int
-	screenHeight  int
-	snapThreshold int
-
-	// Custom drawing callback
-	drawFrame func(ui *UI, rect types.Rect, colorID int)
+	// Custom callbacks
+	drawFrame    func(ui *UI, info FrameInfo)
+	onWindowDrag func(ui *UI, cnt *Container)
 
 	// Last layout rect returned
 	lastRect types.Rect
@@ -110,13 +102,6 @@ type UI struct {
 	// Debug support
 	debug    bool
 	debugLog func(format string, args ...any)
-}
-
-// Panel represents a scrollable panel state.
-type Panel struct {
-	rect    types.Rect
-	scrollX int
-	scrollY int
 }
 
 // New creates a new UI instance with the given configuration.
@@ -143,154 +128,24 @@ func New(cfg Config) *UI {
 	}
 
 	ui.commands.Init(cfg.CommandBuf)
-	ui.windowPool.Init(16, 64)
 	ui.layoutStack.Init(16)
 	ui.clipStack.Init(16)
 	ui.idStack.Init(32)
-	ui.panelStack.Init(8)
 	ui.columnStack.Init(8)
 	ui.containerStack.Init(8)
 	ui.containers = make(map[ID]*Container)
 	ui.treeNodeState = make(map[ID]bool)
 	ui.rootList = make([]*Container, 0, 16)
 
-	// Initialize DrawFrame callback
+	// Initialize callbacks
 	if cfg.DrawFrame != nil {
 		ui.drawFrame = cfg.DrawFrame
 	} else {
 		ui.drawFrame = defaultDrawFrame
 	}
-
-	// Initialize screen bounds for snap-to-edge
-	ui.screenWidth = cfg.ScreenWidth
-	ui.screenHeight = cfg.ScreenHeight
-	ui.snapThreshold = cfg.SnapThreshold
-	if ui.snapThreshold == 0 {
-		ui.snapThreshold = 20 // Default snap threshold
-	}
+	ui.onWindowDrag = cfg.OnWindowDrag
 
 	return ui
-}
-
-// SetScreenSize updates the screen dimensions for snap-to-edge functionality.
-func (u *UI) SetScreenSize(width, height int) {
-	u.screenWidth = width
-	u.screenHeight = height
-}
-
-// applySnapToEdge snaps a container to screen edges and other snap-target windows.
-// Windows with OptSnapToEdge snap to windows with OptSnapTarget and to screen edges.
-func (u *UI) applySnapToEdge(cnt *Container) {
-	threshold := u.snapThreshold
-	snappedX := false
-	snappedY := false
-
-	// Snap to windows marked as snap targets (uses containers map which persists across frames)
-	for _, other := range u.containers {
-		if other == cnt || !other.open {
-			continue
-		}
-
-		// Only snap to windows marked as snap targets
-		if other.opt&OptSnapTarget == 0 {
-			continue
-		}
-
-		// Snap to right edge of other window (our left aligns with their right)
-		if !snappedX && abs(cnt.rect.X-(other.rect.X+other.rect.W)) < threshold {
-			if cnt.rect.Y < other.rect.Y+other.rect.H && cnt.rect.Y+cnt.rect.H > other.rect.Y {
-				cnt.rect.X = other.rect.X + other.rect.W
-				snappedX = true
-			}
-		}
-
-		// Snap to left edge of other window (our right aligns with their left)
-		if !snappedX && abs((cnt.rect.X+cnt.rect.W)-other.rect.X) < threshold {
-			if cnt.rect.Y < other.rect.Y+other.rect.H && cnt.rect.Y+cnt.rect.H > other.rect.Y {
-				cnt.rect.X = other.rect.X - cnt.rect.W
-				snappedX = true
-			}
-		}
-
-		// Snap to bottom edge of other window (our top aligns with their bottom)
-		if !snappedY && abs(cnt.rect.Y-(other.rect.Y+other.rect.H)) < threshold {
-			if cnt.rect.X < other.rect.X+other.rect.W && cnt.rect.X+cnt.rect.W > other.rect.X {
-				cnt.rect.Y = other.rect.Y + other.rect.H
-				snappedY = true
-			}
-		}
-
-		// Snap to top edge of other window (our bottom aligns with their top)
-		if !snappedY && abs((cnt.rect.Y+cnt.rect.H)-other.rect.Y) < threshold {
-			if cnt.rect.X < other.rect.X+other.rect.W && cnt.rect.X+cnt.rect.W > other.rect.X {
-				cnt.rect.Y = other.rect.Y - cnt.rect.H
-				snappedY = true
-			}
-		}
-
-		// Align left edges
-		if !snappedX && abs(cnt.rect.X-other.rect.X) < threshold {
-			if cnt.rect.Y < other.rect.Y+other.rect.H+threshold && cnt.rect.Y+cnt.rect.H > other.rect.Y-threshold {
-				cnt.rect.X = other.rect.X
-				snappedX = true
-			}
-		}
-
-		// Align right edges
-		if !snappedX && abs((cnt.rect.X+cnt.rect.W)-(other.rect.X+other.rect.W)) < threshold {
-			if cnt.rect.Y < other.rect.Y+other.rect.H+threshold && cnt.rect.Y+cnt.rect.H > other.rect.Y-threshold {
-				cnt.rect.X = other.rect.X + other.rect.W - cnt.rect.W
-				snappedX = true
-			}
-		}
-
-		// Align top edges
-		if !snappedY && abs(cnt.rect.Y-other.rect.Y) < threshold {
-			if cnt.rect.X < other.rect.X+other.rect.W+threshold && cnt.rect.X+cnt.rect.W > other.rect.X-threshold {
-				cnt.rect.Y = other.rect.Y
-				snappedY = true
-			}
-		}
-
-		// Align bottom edges
-		if !snappedY && abs((cnt.rect.Y+cnt.rect.H)-(other.rect.Y+other.rect.H)) < threshold {
-			if cnt.rect.X < other.rect.X+other.rect.W+threshold && cnt.rect.X+cnt.rect.W > other.rect.X-threshold {
-				cnt.rect.Y = other.rect.Y + other.rect.H - cnt.rect.H
-				snappedY = true
-			}
-		}
-	}
-
-	// Snap to screen edges (if screen size is set and not already snapped)
-	if u.screenWidth == 0 || u.screenHeight == 0 {
-		return
-	}
-
-	// Snap to left edge
-	if !snappedX && cnt.rect.X < threshold {
-		cnt.rect.X = 0
-	}
-
-	// Snap to top edge
-	if !snappedY && cnt.rect.Y < threshold {
-		cnt.rect.Y = 0
-	}
-
-	// Snap to right edge
-	if !snappedX {
-		rightEdge := u.screenWidth - cnt.rect.W
-		if cnt.rect.X > rightEdge-threshold && cnt.rect.X < rightEdge+threshold {
-			cnt.rect.X = rightEdge
-		}
-	}
-
-	// Snap to bottom edge
-	if !snappedY {
-		bottomEdge := u.screenHeight - cnt.rect.H
-		if cnt.rect.Y > bottomEdge-threshold && cnt.rect.Y < bottomEdge+threshold {
-			cnt.rect.Y = bottomEdge
-		}
-	}
 }
 
 // abs returns the absolute value of an integer.
@@ -299,6 +154,31 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// clampScroll clamps scroll values to valid range [0, maxScroll].
+// maxScroll = contentSize + padding*2 - bodySize, clamped to >= 0.
+func clampScroll(scroll *types.Vec2, contentSize, bodySize, padding types.Vec2) {
+	maxX := contentSize.X + padding.X*2 - bodySize.X
+	maxY := contentSize.Y + padding.Y*2 - bodySize.Y
+	if maxX < 0 {
+		maxX = 0
+	}
+	if maxY < 0 {
+		maxY = 0
+	}
+	if scroll.X < 0 {
+		scroll.X = 0
+	}
+	if scroll.X > maxX {
+		scroll.X = maxX
+	}
+	if scroll.Y < 0 {
+		scroll.Y = 0
+	}
+	if scroll.Y > maxY {
+		scroll.Y = maxY
+	}
 }
 
 // SetDebug enables debug logging with the given callback.
@@ -351,27 +231,8 @@ func (u *UI) EndFrame() {
 	if u.scrollTarget != nil && (u.input.ScrollDelta.X != 0 || u.input.ScrollDelta.Y != 0) {
 		u.scrollTarget.scroll.Y += u.input.ScrollDelta.Y
 		u.scrollTarget.scroll.X += u.input.ScrollDelta.X
-
-		maxScrollY := u.scrollTarget.contentSize.Y + u.style.Padding.Y*2 - u.scrollTarget.body.H
-		maxScrollX := u.scrollTarget.contentSize.X + u.style.Padding.X*2 - u.scrollTarget.body.W
-		if maxScrollY < 0 {
-			maxScrollY = 0
-		}
-		if maxScrollX < 0 {
-			maxScrollX = 0
-		}
-		if u.scrollTarget.scroll.Y < 0 {
-			u.scrollTarget.scroll.Y = 0
-		}
-		if u.scrollTarget.scroll.Y > maxScrollY {
-			u.scrollTarget.scroll.Y = maxScrollY
-		}
-		if u.scrollTarget.scroll.X < 0 {
-			u.scrollTarget.scroll.X = 0
-		}
-		if u.scrollTarget.scroll.X > maxScrollX {
-			u.scrollTarget.scroll.X = maxScrollX
-		}
+		clampScroll(&u.scrollTarget.scroll, u.scrollTarget.contentSize,
+			types.Vec2{X: u.scrollTarget.body.W, Y: u.scrollTarget.body.H}, u.style.Padding)
 	}
 
 	u.input.ScrollDelta = types.Vec2{}
@@ -627,7 +488,7 @@ func (u *UI) ScrollDelta() types.Vec2 {
 
 // Label adds a text label to the current layout.
 func (u *UI) Label(text string) {
-	u.DrawControlText(text, u.LayoutNext(), ColorText, 0)
+	u.DrawControlText(text, u.LayoutNext(), ColorText, OptNoControlInset)
 }
 
 // Space adds vertical spacing without any control or extra spacing.
@@ -640,7 +501,7 @@ func (u *UI) Space(height int) {
 
 // LabelOpt adds a text label with alignment options.
 func (u *UI) LabelOpt(text string, opt int) {
-	u.DrawControlText(text, u.LayoutNext(), ColorText, opt)
+	u.DrawControlText(text, u.LayoutNext(), ColorText, opt|OptNoControlInset)
 }
 
 // Button adds a button to the current layout.
@@ -653,14 +514,14 @@ func (u *UI) Button(label string) bool {
 func (u *UI) ButtonOpt(label string, icon int, opt int) bool {
 	var id ID
 	if label != "" {
-		id = u.getID(label)
+		id = u.GetID(label)
 	} else {
 		id = u.getIDFromInt(icon)
 	}
 	rect := u.LayoutNext()
 	u.UpdateControlOpt(id, rect, opt)
 	clicked := u.input.MousePressed[int(MouseLeft)] && u.input.Focus == id
-	u.DrawControlFrame(id, rect, ColorButton, opt)
+	u.DrawControlFrame(id, rect, FrameButton, opt)
 	if label != "" {
 		u.DrawControlText(label, rect, ColorText, opt|OptAlignCenter)
 	}
@@ -682,7 +543,7 @@ func (u *UI) ToggleButton(label string, selected bool) bool {
 func (u *UI) ToggleButtonOpt(label string, icon int, selected bool, opt int) bool {
 	var id ID
 	if label != "" {
-		id = u.getID(label)
+		id = u.GetID(label)
 	} else {
 		id = u.getIDFromInt(icon)
 	}
@@ -690,12 +551,23 @@ func (u *UI) ToggleButtonOpt(label string, icon int, selected bool, opt int) boo
 	u.UpdateControlOpt(id, rect, opt)
 	clicked := u.input.MousePressed[int(MouseLeft)] && u.input.Focus == id
 
-	// Draw as pressed/focused if selected
-	colorID := ColorButton
+	// Draw with selected state override
+	state := StateNormal
 	if selected {
-		colorID = ColorButtonFocus
+		state = StateFocus
+	} else if u.input.Focus == id {
+		state = StateFocus
+	} else if u.input.Hover == id {
+		state = StateHover
 	}
-	u.DrawControlFrame(id, rect, colorID, opt)
+
+	if opt&OptNoFrame == 0 {
+		u.DrawFrame(FrameInfo{
+			Kind:  FrameButton,
+			State: state,
+			Rect:  rect,
+		})
+	}
 
 	if label != "" {
 		u.DrawControlText(label, rect, ColorText, opt|OptAlignCenter)
@@ -770,7 +642,7 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 	}
 
 	if opt&OptNoFrame == 0 {
-		u.DrawFrame(rect, ColorWindowBG)
+		u.DrawFrame(FrameInfo{Kind: FrameWindow, State: StateNormal, Rect: rect})
 	}
 	u.PushClip(rect)
 
@@ -792,7 +664,7 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 
 	if opt&OptNoTitle == 0 {
 		titleRect := types.Rect{X: contentRect.X, Y: rect.Y, W: contentRect.W, H: titleHeight}
-		u.DrawFrame(titleRect, ColorTitleBG)
+		u.DrawFrame(FrameInfo{Kind: FrameTitle, State: StateNormal, Rect: titleRect})
 		titleID := u.GetID("!title")
 
 		mouseOnTitle := titleRect.Contains(u.input.MousePos)
@@ -823,9 +695,9 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 				cnt.rect.X = newX
 				cnt.rect.Y = newY
 
-				// Apply real-time snapping while dragging
-				if opt&OptSnapToEdge != 0 {
-					u.applySnapToEdge(cnt)
+				// Call window drag hook (for snap-to-edge, etc.)
+				if u.onWindowDrag != nil {
+					u.onWindowDrag(u, cnt)
 				}
 			}
 		}
@@ -859,8 +731,13 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 			}
 		}
 
-	
-		u.DrawControlText(title, titleRect, ColorTitleText, opt)
+		// For text centering, account for visual border (renderer insets title bar)
+		textTitleRect := titleRect
+		if wb := u.style.WindowBorder; wb > 0 {
+			textTitleRect.Y += wb
+			textTitleRect.H -= wb
+		}
+		u.DrawControlText(title, textTitleRect, ColorTitleText, opt|OptNoControlInset)
 
 		contentRect = body
 	}
@@ -905,7 +782,12 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 		}
 	}
 
+	// Track dimensions before scrollbars to detect which scrollbars are present
+	preScrollW := contentRect.W
+	preScrollH := contentRect.H
 	u.scrollbars(cnt, &contentRect)
+	hasVScroll := contentRect.W < preScrollW
+	hasHScroll := contentRect.H < preScrollH
 
 	if opt&OptNoResize == 0 {
 		sz := u.style.ScrollbarSize
@@ -946,7 +828,26 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 
 	cnt.body = contentRect
 	u.currentWindowRect = contentRect
-	u.PushClip(contentRect)
+
+	// Clip content to inside the visual border (prevents rendering into window frame)
+	// Only apply border clip on edges WITHOUT scrollbars - scrollbars already handle their edges
+	clipRect := contentRect
+	if wb := u.style.WindowBorder; wb > 0 {
+		// Left edge always needs border clip
+		clipRect.X += wb
+		clipRect.W -= wb
+
+		// Right edge: only clip if no vertical scrollbar (scrollbar area handles it)
+		if !hasVScroll {
+			clipRect.W -= wb
+		}
+
+		// Bottom edge: only clip if no horizontal scrollbar (scrollbar area handles it)
+		if !hasHScroll {
+			clipRect.H -= wb
+		}
+	}
+	u.PushClip(clipRect)
 
 	paddedBody := expandRectXY(contentRect, -u.style.Padding.X, -u.style.Padding.Y)
 	if paddedBody.W < 0 {
@@ -955,7 +856,7 @@ func (u *UI) BeginWindowOpt(title string, rect types.Rect, opt int) bool {
 	if paddedBody.H < 0 {
 		paddedBody.H = 0
 	}
-	u.pushLayout(paddedBody, cnt.scroll)
+	u.pushLayout(paddedBody, cnt.scroll, cnt.minContentWidth)
 
 	return true
 }
@@ -968,20 +869,14 @@ func (u *UI) EndWindow() {
 		cnt.contentSize.X = layout.max.X - layout.body.X
 		cnt.contentSize.Y = layout.max.Y - layout.body.Y
 
+		// Update minimum content width when content overflows
 		maxScrollX := cnt.contentSize.X + u.style.Padding.X*2 - cnt.body.W
-		maxScrollY := cnt.contentSize.Y + u.style.Padding.Y*2 - cnt.body.H
-		if maxScrollX < 0 {
-			maxScrollX = 0
+		if maxScrollX > 0 && cnt.contentSize.X > cnt.minContentWidth {
+			cnt.minContentWidth = cnt.contentSize.X
 		}
-		if maxScrollY < 0 {
-			maxScrollY = 0
-		}
-		if cnt.scroll.X > maxScrollX {
-			cnt.scroll.X = maxScrollX
-		}
-		if cnt.scroll.Y > maxScrollY {
-			cnt.scroll.Y = maxScrollY
-		}
+
+		clampScroll(&cnt.scroll, cnt.contentSize,
+			types.Vec2{X: cnt.body.W, Y: cnt.body.H}, u.style.Padding)
 	}
 
 	u.PopLayout()
@@ -1024,6 +919,16 @@ func (u *UI) GetContainer(name string) *Container {
 	}
 	u.containers[id] = cnt
 	return cnt
+}
+
+// EachContainer iterates over all containers.
+// The callback returns true to continue iteration, false to stop.
+func (u *UI) EachContainer(fn func(*Container) bool) {
+	for _, cnt := range u.containers {
+		if !fn(cnt) {
+			break
+		}
+	}
 }
 
 // BringToFront brings a container to the front of the z-order.
@@ -1168,24 +1073,30 @@ func (u *UI) drawScrollThumb(rect types.Rect) {
 	})
 }
 
-// DrawFrame draws a control frame using the configured callback.
-// This allows users to customize how control backgrounds are rendered.
-func (u *UI) DrawFrame(rect types.Rect, colorID int) {
-	u.drawFrame(u, rect, colorID)
+// DrawFrame draws a component frame using the configured callback.
+// This allows users to customize how component backgrounds are rendered.
+func (u *UI) DrawFrame(info FrameInfo) {
+	u.drawFrame(u, info)
 }
 
-// DrawControlFrame draws a control frame with hover/focus color adjustment.
-func (u *UI) DrawControlFrame(id ID, rect types.Rect, colorID int, opt int) {
+// DrawControlFrame draws a control frame with automatic state detection.
+func (u *UI) DrawControlFrame(id ID, rect types.Rect, kind FrameKind, opt int) {
 	if opt&OptNoFrame != 0 {
 		return
 	}
-	// Adjust color based on focus/hover state
+
+	state := StateNormal
 	if u.input.Focus == id {
-		colorID += 2
+		state = StateFocus
 	} else if u.input.Hover == id {
-		colorID += 1
+		state = StateHover
 	}
-	u.DrawFrame(rect, colorID)
+
+	u.DrawFrame(FrameInfo{
+		Kind:  kind,
+		State: state,
+		Rect:  rect,
+	})
 }
 
 // DrawControlText draws text inside a control rect with alignment options.
@@ -1194,19 +1105,48 @@ func (u *UI) DrawControlText(text string, rect types.Rect, colorID int, opt int)
 	textWidth := font.Width(text)
 	textHeight := font.Height()
 
-	// Clip to rect
-	u.PushClip(rect)
+	// OptNoControlInset: use rect directly with style padding (for titles, labels)
+	// Otherwise: apply control margin (border) for clipping, margin+padding for content
+	var clipRect, contentRect types.Rect
+	if opt&OptNoControlInset != 0 {
+		clipRect = rect
+		contentRect = rect
+		contentRect.X += u.style.Padding.X
+		contentRect.W -= u.style.Padding.X * 2
+	} else {
+		margin := u.style.ControlMargin
+		padding := u.style.ControlPadding
+		inset := margin + padding
 
-	// Calculate position based on alignment
+		clipRect = rect
+		if margin > 0 {
+			clipRect.X += margin
+			clipRect.Y += margin
+			clipRect.W -= margin * 2
+			clipRect.H -= margin * 2
+		}
+
+		contentRect = rect
+		if inset > 0 {
+			contentRect.X += inset
+			contentRect.Y += inset
+			contentRect.W -= inset * 2
+			contentRect.H -= inset * 2
+		}
+	}
+
+	u.PushClip(clipRect)
+
+	// Calculate position based on alignment (within content area)
 	var pos types.Vec2
-	pos.Y = rect.Y + (rect.H-textHeight)/2
+	pos.Y = contentRect.Y + (contentRect.H-textHeight)/2
 
 	if opt&OptAlignCenter != 0 {
-		pos.X = rect.X + (rect.W-textWidth)/2
+		pos.X = contentRect.X + (contentRect.W-textWidth)/2
 	} else if opt&OptAlignRight != 0 {
-		pos.X = rect.X + rect.W - textWidth - u.style.Padding.X
+		pos.X = contentRect.X + contentRect.W - textWidth
 	} else {
-		pos.X = rect.X + u.style.Padding.X
+		pos.X = contentRect.X
 	}
 
 	u.commands.Push(Command{
@@ -1221,13 +1161,13 @@ func (u *UI) DrawControlText(text string, rect types.Rect, colorID int, opt int)
 }
 
 // defaultDrawFrame draws a filled rectangle with border.
-func defaultDrawFrame(ui *UI, rect types.Rect, colorID int) {
-	c := ui.GetColorByID(colorID)
-	ui.DrawRect(rect, c)
+func defaultDrawFrame(ui *UI, info FrameInfo) {
+	c := ui.GetColor(info.Kind, info.State)
+	ui.DrawRect(info.Rect, c)
 
 	// Draw border if border color has non-zero alpha
 	// Skip border for scrollbar elements and title bar
-	if colorID == ColorScrollBase || colorID == ColorScrollThumb || colorID == ColorTitleBG {
+	if info.Kind == FrameScrollTrack || info.Kind == FrameScrollThumb || info.Kind == FrameTitle {
 		return
 	}
 
@@ -1237,51 +1177,84 @@ func defaultDrawFrame(ui *UI, rect types.Rect, colorID int) {
 		if a > 0 {
 			// Draw border
 			borderRect := types.Rect{
-				X: rect.X - 1,
-				Y: rect.Y - 1,
-				W: rect.W + 2,
-				H: rect.H + 2,
+				X: info.Rect.X - 1,
+				Y: info.Rect.Y - 1,
+				W: info.Rect.W + 2,
+				H: info.Rect.H + 2,
 			}
 			ui.DrawBox(borderRect, ui.style.Colors.Border)
 		}
 	}
 }
 
-// GetColorByID returns the color for a given color ID.
-// This is useful for custom DrawFrame callbacks.
+// GetColor returns the color for a given component kind and state.
+func (u *UI) GetColor(kind FrameKind, state FrameState) color.Color {
+	colors := u.style.Colors
+	switch kind {
+	case FrameWindow:
+		return colors.WindowBg
+	case FrameTitle:
+		return colors.WindowTitle
+	case FramePanel:
+		return colors.PanelBg
+	case FrameButton:
+		switch state {
+		case StateHover:
+			return colors.ButtonHover
+		case StateFocus:
+			return colors.ButtonActive
+		default:
+			return colors.Button
+		}
+	case FrameInput:
+		switch state {
+		case StateHover:
+			return colors.BaseHover
+		case StateFocus:
+			return colors.BaseFocus
+		default:
+			return colors.Base
+		}
+	case FrameSliderThumb:
+		switch state {
+		case StateHover:
+			return colors.ButtonHover
+		case StateFocus:
+			return colors.ButtonActive
+		default:
+			return colors.Button
+		}
+	case FrameScrollTrack:
+		return colors.ScrollBase
+	case FrameScrollThumb:
+		return colors.ScrollThumb
+	case FrameHeader:
+		switch state {
+		case StateHover:
+			return colors.ButtonHover
+		case StateFocus:
+			return colors.ButtonActive
+		default:
+			return colors.Button
+		}
+	default:
+		return colors.WindowBg
+	}
+}
+
+// GetColorByID returns the color for a given text/border color ID.
+// For component background colors, use GetColor(FrameKind, FrameState) instead.
 func (u *UI) GetColorByID(colorID int) color.Color {
 	switch colorID {
 	case ColorText:
 		return u.style.Colors.Text
 	case ColorBorder:
 		return u.style.Colors.Border
-	case ColorWindowBG:
-		return u.style.Colors.WindowBg
-	case ColorTitleBG:
-		return u.style.Colors.WindowTitle
 	case ColorTitleText:
 		if u.style.Colors.TitleText != nil {
 			return u.style.Colors.TitleText
 		}
 		return u.style.Colors.Text
-	case ColorPanelBG:
-		return u.style.Colors.PanelBg
-	case ColorButton:
-		return u.style.Colors.Button
-	case ColorButtonHover:
-		return u.style.Colors.ButtonHover
-	case ColorButtonFocus:
-		return u.style.Colors.ButtonActive
-	case ColorBase:
-		return u.style.Colors.Base
-	case ColorBaseHover:
-		return u.style.Colors.BaseHover
-	case ColorBaseFocus:
-		return u.style.Colors.BaseFocus
-	case ColorScrollBase:
-		return u.style.Colors.ScrollBase
-	case ColorScrollThumb:
-		return u.style.Colors.ScrollThumb
 	default:
 		return u.style.Colors.Text
 	}
@@ -1429,11 +1402,11 @@ func (u *UI) Checkbox(label string, checked *bool) bool {
 		changed = true
 	}
 
-	u.DrawControlFrame(id, box, ColorBase, 0)
+	u.DrawControlFrame(id, box, FrameInput, 0)
 	if *checked {
 		u.DrawIcon(IconCheck, box, u.style.Colors.Text)
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + box.W, Y: rect.Y, W: rect.W - box.W, H: rect.H}, ColorText, 0)
+	u.DrawControlText(label, types.Rect{X: rect.X + box.W, Y: rect.Y, W: rect.W - box.W, H: rect.H}, ColorText, OptNoControlInset)
 	return changed
 }
 
@@ -1487,7 +1460,7 @@ func (u *UI) SliderOpt(value *float64, low, high, step float64, format string, o
 	}
 
 	// Draw slider track
-	u.DrawControlFrame(id, rect, ColorBase, opt)
+	u.DrawControlFrame(id, rect, FrameInput, opt)
 
 	// Calculate thumb position
 	ratio := 0.5
@@ -1501,20 +1474,29 @@ func (u *UI) SliderOpt(value *float64, low, high, step float64, format string, o
 		ratio = 1
 	}
 
-	thumbSize := u.style.ThumbSize
-	thumbX := rect.X + int(ratio*float64(rect.W-thumbSize))
-	thumbRect := types.Rect{X: thumbX, Y: rect.Y, W: thumbSize, H: rect.H}
+	// Thumb: 8 logical pixels wide, centered vertically in track
+	thumbW := u.style.ThumbSize
+	thumbH := rect.H // Full height of slider track
+	thumbX := rect.X + int(ratio*float64(rect.W-thumbW))
+	thumbRect := types.Rect{X: thumbX, Y: rect.Y, W: thumbW, H: thumbH}
 
 	// Draw thumb with frame
-	u.DrawControlFrame(id, thumbRect, ColorButton, opt)
+	u.DrawControlFrame(id, thumbRect, FrameSliderThumb, opt)
 
-	// Draw value text
+	// Draw value text with 2px margin on each side, centered
 	displayFormat := format
 	if displayFormat == "" {
 		displayFormat = "%.2f"
 	}
 	text := fmt.Sprintf(displayFormat, *value)
-	u.DrawControlText(text, rect, ColorText, opt)
+	textMargin := 2 // 2 logical pixel margin on left/right
+	textRect := types.Rect{
+		X: rect.X + textMargin,
+		Y: rect.Y,
+		W: rect.W - textMargin*2,
+		H: rect.H,
+	}
+	u.DrawControlText(text, textRect, ColorText, opt|OptAlignCenter|OptNoControlInset)
 
 	return changed
 }
@@ -1867,7 +1849,7 @@ func (u *UI) BeginPanelOpt(name string, opt int) bool {
 
 	// Draw panel background unless OptNoFrame
 	if opt&OptNoFrame == 0 {
-		u.DrawFrame(rect, ColorPanelBG)
+		u.DrawFrame(FrameInfo{Kind: FramePanel, State: StateNormal, Rect: rect})
 	}
 
 	// Calculate body (content area)
@@ -1882,15 +1864,8 @@ func (u *UI) BeginPanelOpt(name string, opt int) bool {
 	cnt.body = body
 	u.PushClip(cnt.body)
 
-	panel := Panel{
-		rect:    rect,
-		scrollX: cnt.scroll.X,
-		scrollY: cnt.scroll.Y,
-	}
-	u.panelStack.Push(panel)
-
 	paddedBody := expandRectXY(cnt.body, -u.style.Padding.X, -u.style.Padding.Y)
-	u.pushLayout(paddedBody, cnt.scroll)
+	u.pushLayout(paddedBody, cnt.scroll, cnt.minContentWidth)
 
 	return true
 }
@@ -1903,24 +1878,17 @@ func (u *UI) EndPanel() {
 		cnt.contentSize.X = layout.max.X - layout.body.X
 		cnt.contentSize.Y = layout.max.Y - layout.body.Y
 
+		// Update minimum content width when content overflows
 		maxScrollX := cnt.contentSize.X + u.style.Padding.X*2 - cnt.body.W
-		maxScrollY := cnt.contentSize.Y + u.style.Padding.Y*2 - cnt.body.H
-		if maxScrollX < 0 {
-			maxScrollX = 0
+		if maxScrollX > 0 && cnt.contentSize.X > cnt.minContentWidth {
+			cnt.minContentWidth = cnt.contentSize.X
 		}
-		if maxScrollY < 0 {
-			maxScrollY = 0
-		}
-		if cnt.scroll.X > maxScrollX {
-			cnt.scroll.X = maxScrollX
-		}
-		if cnt.scroll.Y > maxScrollY {
-			cnt.scroll.Y = maxScrollY
-		}
+
+		clampScroll(&cnt.scroll, cnt.contentSize,
+			types.Vec2{X: cnt.body.W, Y: cnt.body.H}, u.style.Padding)
 	}
 
 	u.PopLayout()
-	u.panelStack.Pop()
 	u.PopClip()
 	if cnt != nil {
 		u.containerStack.Pop()
@@ -1950,7 +1918,7 @@ func (u *UI) HeaderEx(label string, opt int) bool {
 		expanded = !expanded
 	}
 	u.treeNodeState[id] = expanded
-	u.DrawControlFrame(id, rect, ColorButton, 0)
+	u.DrawControlFrame(id, rect, FrameHeader, 0)
 
 	iconID := IconCollapsed
 	if expanded {
@@ -1962,7 +1930,7 @@ func (u *UI) HeaderEx(label string, opt int) bool {
 	if iconOffset < 2 {
 		iconOffset = 2
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, 0)
+	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, OptNoControlInset)
 	return expanded
 }
 
@@ -1990,7 +1958,7 @@ func (u *UI) BeginTreeNodeEx(label string, opt int) bool {
 	u.treeNodeState[id] = expanded
 
 	if u.input.Hover == id {
-		u.DrawFrame(rect, ColorButtonHover)
+		u.DrawFrame(FrameInfo{Kind: FrameHeader, State: StateHover, Rect: rect})
 	}
 
 	iconID := IconCollapsed
@@ -2003,7 +1971,7 @@ func (u *UI) BeginTreeNodeEx(label string, opt int) bool {
 	if iconOffset < 2 {
 		iconOffset = 2
 	}
-	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, 0)
+	u.DrawControlText(label, types.Rect{X: rect.X + iconOffset, Y: rect.Y, W: rect.W - iconOffset, H: rect.H}, ColorText, OptNoControlInset)
 
 	if expanded {
 		u.getLayout().indent += u.style.Indent
@@ -2272,31 +2240,35 @@ func (u *UI) textboxCursorFromClick(buf *[]byte, rect types.Rect) int {
 	return bestPos
 }
 
+// FNV-1a hash constants (32-bit)
+const (
+	fnv1aOffset32 = 2166136261
+	fnv1aPrime32  = 16777619
+)
+
+// fnv1aHash computes the FNV-1a hash of a string with an optional base.
+func fnv1aHash(s string, base uint32) uint32 {
+	h := base
+	for i := 0; i < len(s); i++ {
+		h ^= uint32(s[i])
+		h *= fnv1aPrime32
+	}
+	return h
+}
+
 // GetID returns an ID for the given name, combined with current ID stack.
 func (u *UI) GetID(name string) ID {
-	// Start with base hash from ID stack
-	var base uint32 = 2166136261
+	base := uint32(fnv1aOffset32)
 	if u.idStack.Len() > 0 {
 		base = uint32(u.idStack.Peek())
 	}
-
-	// Hash the name
-	for i := 0; i < len(name); i++ {
-		base ^= uint32(name[i])
-		base *= 16777619
-	}
-	return ID(base)
+	return ID(fnv1aHash(name, base))
 }
 
 // getRawID returns an ID for the given name WITHOUT considering the ID stack.
 // Used for container lookups where ID should be stable regardless of scope.
 func (u *UI) getRawID(name string) ID {
-	var base uint32 = 2166136261
-	for i := 0; i < len(name); i++ {
-		base ^= uint32(name[i])
-		base *= 16777619
-	}
-	return ID(base)
+	return ID(fnv1aHash(name, fnv1aOffset32))
 }
 
 // PushID pushes a new ID context onto the stack.
@@ -2313,20 +2285,9 @@ func (u *UI) PopID() {
 	}
 }
 
-// getID generates an ID from a string (internal, uses GetID).
-func (u *UI) getID(name string) ID {
-	return u.GetID(name)
-}
-
 // getIDFromPtr generates an ID from a pointer address.
 func (u *UI) getIDFromPtr(ptr interface{}) ID {
-	h := uint32(2166136261)
-	s := fmt.Sprintf("%p", ptr)
-	for i := 0; i < len(s); i++ {
-		h ^= uint32(s[i])
-		h *= 16777619
-	}
-	return ID(h)
+	return ID(fnv1aHash(fmt.Sprintf("%p", ptr), fnv1aOffset32))
 }
 
 // getIDFromInt generates an ID from an integer (used for icon-only buttons).
@@ -2391,13 +2352,6 @@ type InputState struct {
 
 // ID is a unique identifier for UI elements.
 type ID uint32
-
-// Window represents a window container.
-type Window struct {
-	rect  types.Rect
-	title string
-	open  bool
-}
 
 // Text adds word-wrapped text to the current layout.
 // Unlike Label, Text wraps to fit the available width.
@@ -2490,12 +2444,18 @@ func splitWords(text string) []string {
 }
 
 // scrollbars handles scrollbar rendering and interaction for containers.
+// Scrollbar layout: content | margin | track | margin | border
+// Total reserved space = margin + track + margin + border (border side)
 func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 	if cnt.opt&OptNoScroll != 0 {
 		return
 	}
 
-	sz := u.style.ScrollbarSize
+	trackSize := u.style.ScrollbarSize   // Width of scrollbar track
+	margin := u.style.ScrollbarMargin    // Visible margin around scrollbar
+	border := u.style.ScrollbarBorder    // Visual border width (scrollbar must clear this)
+	// Total space: margin (content side) + track + margin (border side) + border
+	totalSize := margin + trackSize + margin + border
 
 	cs := cnt.contentSize
 	cs.X += u.style.Padding.X * 2
@@ -2512,20 +2472,24 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		prevH = body.H
 	}
 
+	// Reserve space for scrollbars (margin + track + margin)
 	if cs.Y > prevH {
-		body.W -= sz
+		body.W -= totalSize
 	}
 	if cs.X > prevW {
-		body.H -= sz
+		body.H -= totalSize
 	}
 
+	// Vertical scrollbar (right side)
 	maxScrollY := cs.Y - body.H
 	if maxScrollY > 0 && body.H > 0 {
+		// Layout: content | margin | track | margin | border
+		// Vertical: top has margin from content, bottom needs margin + border to clear window border
 		base := types.Rect{
-			X: body.X + body.W,
-			Y: body.Y,
-			W: sz,
-			H: body.H,
+			X: body.X + body.W + margin,       // margin from content edge
+			Y: body.Y + margin,                // margin from content top
+			W: trackSize,
+			H: body.H - margin*2 - border,     // margin top, margin+border bottom
 		}
 		scrollID := u.GetID("!scrollbary")
 		u.UpdateControl(scrollID, base)
@@ -2557,13 +2521,16 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		cnt.scroll.Y = 0
 	}
 
+	// Horizontal scrollbar (bottom)
 	maxScrollX := cs.X - body.W
 	if maxScrollX > 0 && body.W > 0 {
+		// Layout: border | margin | track | margin | content
+		// Horizontal: left needs margin + border to clear window border, right has margin from content
 		base := types.Rect{
-			X: body.X,
-			Y: body.Y + body.H,
-			W: body.W,
-			H: sz,
+			X: body.X + margin + border,       // margin+border from window left edge
+			Y: body.Y + body.H + margin,       // margin from content edge
+			W: body.W - margin*2 - border,     // margin+border left, margin right
+			H: trackSize,
 		}
 		scrollID := u.GetID("!scrollbarx")
 		u.UpdateControl(scrollID, base)

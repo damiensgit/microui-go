@@ -11,16 +11,31 @@ type Style struct {
 	Colors types.ThemeColors
 
 	// Sizing
-	Size          types.Vec2 // Default control size
-	Padding       types.Vec2 // Internal padding
-	Spacing       int        // Space between controls
-	Indent        int        // Tree/header indent
-	TitleHeight   int        // Window title bar height
-	ScrollbarSize int        // Scrollbar width
-	ThumbSize     int        // Slider thumb size
-	BorderWidth   int        // Window border width - content is inset by this amount
-	                         // GUI: 0 (borders drawn outside/expanded, no inset needed)
-	                         // TUI: 1 (borders drawn on-edge, content must be inset)
+	Size           types.Vec2 // Default control size
+	Padding        types.Vec2 // Internal padding
+	Spacing        int        // Space between controls
+	Indent         int        // Tree/header indent
+	TitleHeight    int        // Window title bar height
+	ScrollbarSize   int // Scrollbar track width
+	ScrollbarMargin int // Visible margin around scrollbar track
+	ScrollbarBorder int // Visual border width that scrollbar must clear
+	ThumbSize       int // Slider thumb size
+
+	// Content inset (for TUI where borders are drawn on-edge)
+	BorderWidth int // Window border width - content is inset by this amount
+	                // GUI: 0 (borders drawn outside/expanded, no inset needed)
+	                // TUI: 1 (borders drawn on-edge, content must be inset)
+
+	// Visual border widths for clipping (renderer-specific, GUI only)
+	// These define how much space the rendered borders occupy, used for:
+	// - Clipping content so it doesn't render into borders
+	// - Positioning scrollbars inside the visual window area
+	WindowBorder int // Window frame border width (for content clipping)
+
+	// Control layout (buttons, inputs, etc.)
+	// Layout: rect edge | margin (border) | padding | content | padding | margin | rect edge
+	ControlMargin  int // Visual border width (clipping boundary)
+	ControlPadding int // Additional space between border and content
 }
 
 // GUIStyle returns a style optimized for pixel-based GUI rendering.

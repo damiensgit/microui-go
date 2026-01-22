@@ -114,9 +114,12 @@ func New(cfg Config) *UI {
 		cfg.InputChanSize = 64
 	}
 
-	// Use default style if not provided
+	// Use default style if nothing provided
 	if cfg.Style.Font == nil && cfg.Style.Colors.Text == nil {
 		cfg.Style = DefaultStyle()
+	} else if cfg.Style.Font == nil {
+		// User provided colors but no font - default the font independently
+		cfg.Style.Font = &types.MockFont{}
 	}
 
 	ui := &UI{
@@ -200,12 +203,15 @@ func (u *UI) BeginFrame() {
 	u.scrollTarget = nil
 	u.rootList = u.rootList[:0]
 
+	// Process input FIRST so channel events update MousePos before delta calculation
+	u.processInput()
+
+	// Now compute delta with up-to-date positions
 	u.input.MouseDelta = types.Vec2{
 		X: u.input.MousePos.X - u.input.LastMousePos.X,
 		Y: u.input.MousePos.Y - u.input.LastMousePos.Y,
 	}
 	u.input.LastMousePos = u.input.MousePos
-	u.processInput()
 }
 
 // EndFrame finalizes the current frame.
@@ -2567,7 +2573,7 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		}
 		scrollID := u.GetID("!scrollbary")
 		u.UpdateControl(scrollID, base)
-		if u.input.Focus == scrollID && u.input.MouseDown[int(MouseLeft)] {
+		if u.input.Focus == scrollID && u.input.MouseDown[int(MouseLeft)] && base.H > 0 {
 			cnt.scroll.Y += u.input.MouseDelta.Y * cs.Y / base.H
 		}
 		if cnt.scroll.Y < 0 {
@@ -2613,7 +2619,7 @@ func (u *UI) scrollbars(cnt *Container, body *types.Rect) {
 		}
 		scrollID := u.GetID("!scrollbarx")
 		u.UpdateControl(scrollID, base)
-		if u.input.Focus == scrollID && u.input.MouseDown[int(MouseLeft)] {
+		if u.input.Focus == scrollID && u.input.MouseDown[int(MouseLeft)] && base.W > 0 {
 			cnt.scroll.X += u.input.MouseDelta.X * cs.X / base.W
 		}
 		if cnt.scroll.X < 0 {

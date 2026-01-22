@@ -1,12 +1,11 @@
-module ebiten-demo
+module github.com/user/microui-go/examples/ebiten-demo
 
 go 1.25.0
-
-replace github.com/user/microui-go => ../../
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.7
 	github.com/user/microui-go v0.0.0
+	github.com/user/microui-go/render/ebiten v0.0.0
 )
 
 require (
@@ -16,4 +15,9 @@ require (
 	github.com/jezek/xgb v1.1.1 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
+)
+
+replace (
+	github.com/user/microui-go => ../..
+	github.com/user/microui-go/render/ebiten => ../../render/ebiten
 )

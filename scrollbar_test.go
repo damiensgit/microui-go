@@ -967,3 +967,139 @@ func TestTUIScrollbar_BoxTestScenario(t *testing.T) {
 			contentBottomY, clipEndY)
 	}
 }
+
+// TestScrollbar_TinyWindowNoPanic tests that dragging a scrollbar in a tiny window
+// does not panic due to division by zero when the track size is <= 0.
+// This tests the fix for: "Scrollbar drag math divides by base.H/base.W without guarding"
+func TestScrollbar_TinyWindowNoPanic(t *testing.T) {
+	ui := New(Config{})
+
+	// Create a very small window with overflowing content
+	// The track size calculation is: body.H - margin*2 - border
+	// With small body, this could become 0 or negative
+	tinyH := 5 // Very small - track will be minimal
+
+	// Frame 1: Create tiny window with overflow
+	ui.BeginFrame()
+	ui.BeginWindow("Tiny", types.Rect{X: 0, Y: 0, W: 50, H: tinyH})
+	for i := 0; i < 50; i++ {
+		ui.LayoutRow(1, []int{-1}, 0)
+		ui.Label("Overflow")
+	}
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// Frame 2: Click on scrollbar area
+	ui.BeginFrame()
+	ui.MouseMove(45, tinyH/2) // Right edge
+	ui.MouseDown(45, tinyH/2, MouseLeft)
+	ui.BeginWindow("Tiny", types.Rect{X: 0, Y: 0, W: 50, H: tinyH})
+	for i := 0; i < 50; i++ {
+		ui.LayoutRow(1, []int{-1}, 0)
+		ui.Label("Overflow")
+	}
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// Frame 3: Drag - this should NOT panic even with tiny track size
+	ui.BeginFrame()
+	ui.MouseMove(45, tinyH/2+10) // Drag down
+	ui.BeginWindow("Tiny", types.Rect{X: 0, Y: 0, W: 50, H: tinyH})
+	for i := 0; i < 50; i++ {
+		ui.LayoutRow(1, []int{-1}, 0)
+		ui.Label("Overflow")
+	}
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// If we got here without panic, the test passes
+}
+
+// TestScrollbar_HorizontalTinyWindowNoPanic tests horizontal scrollbar
+// in a tiny window does not panic.
+func TestScrollbar_HorizontalTinyWindowNoPanic(t *testing.T) {
+	ui := New(Config{})
+
+	// Create a very narrow window with wide content
+	tinyW := 5
+
+	// Frame 1: Create tiny window with horizontal overflow
+	ui.BeginFrame()
+	ui.BeginWindow("TinyH", types.Rect{X: 0, Y: 0, W: tinyW, H: 100})
+	ui.LayoutRow(1, []int{500}, 30) // Very wide content
+	ui.Label("Wide")
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// Frame 2: Click on horizontal scrollbar area
+	ui.BeginFrame()
+	ui.MouseMove(tinyW/2, 95) // Bottom edge
+	ui.MouseDown(tinyW/2, 95, MouseLeft)
+	ui.BeginWindow("TinyH", types.Rect{X: 0, Y: 0, W: tinyW, H: 100})
+	ui.LayoutRow(1, []int{500}, 30)
+	ui.Label("Wide")
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// Frame 3: Drag - should NOT panic
+	ui.BeginFrame()
+	ui.MouseMove(tinyW/2+10, 95) // Drag right
+	ui.BeginWindow("TinyH", types.Rect{X: 0, Y: 0, W: tinyW, H: 100})
+	ui.LayoutRow(1, []int{500}, 30)
+	ui.Label("Wide")
+	ui.EndWindow()
+	ui.EndFrame()
+
+	// If we got here without panic, the test passes
+}
+
+// TestScrollbar_ZeroSizeBodyNoPanic tests that a window with zero-size body
+// (due to large margins/borders) does not panic when trying to scroll.
+func TestScrollbar_ZeroSizeBodyNoPanic(t *testing.T) {
+	// Use TUI style which has borders that might eat into small windows
+	style := TUIStyle()
+	ui := New(Config{Style: style})
+
+	// Window size barely bigger than chrome - body will be tiny or zero
+	// TUI: titleHeight=1, borderWidth=1, scrollbarSize=1
+	minW := style.BorderWidth*2 + 2
+	minH := style.TitleHeight + style.BorderWidth + 2
+
+	// Frame 1: Create minimal window with overflow
+	ui.BeginFrame()
+	if ui.BeginWindowOpt("Zero", types.Rect{X: 0, Y: 0, W: minW, H: minH}, 0) {
+		for i := 0; i < 20; i++ {
+			ui.LayoutRow(1, []int{100}, 1)
+			ui.Label("X")
+		}
+		ui.EndWindow()
+	}
+	ui.EndFrame()
+
+	// Frame 2: Try to interact with scrollbar
+	ui.BeginFrame()
+	ui.MouseMove(minW-1, minH/2)
+	ui.MouseDown(minW-1, minH/2, MouseLeft)
+	if ui.BeginWindowOpt("Zero", types.Rect{X: 0, Y: 0, W: minW, H: minH}, 0) {
+		for i := 0; i < 20; i++ {
+			ui.LayoutRow(1, []int{100}, 1)
+			ui.Label("X")
+		}
+		ui.EndWindow()
+	}
+	ui.EndFrame()
+
+	// Frame 3: Drag
+	ui.BeginFrame()
+	ui.MouseMove(minW-1, minH/2+5)
+	if ui.BeginWindowOpt("Zero", types.Rect{X: 0, Y: 0, W: minW, H: minH}, 0) {
+		for i := 0; i < 20; i++ {
+			ui.LayoutRow(1, []int{100}, 1)
+			ui.Label("X")
+		}
+		ui.EndWindow()
+	}
+	ui.EndFrame()
+
+	// Success if no panic
+}

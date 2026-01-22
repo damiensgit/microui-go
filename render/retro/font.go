@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"image/color"
 
-	"github.com/hajimehoshi/bitmapfont/v4"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
@@ -120,38 +119,4 @@ func (f *Font) SetSize(size float64) {
 	f.size = size
 	f.face.Size = size
 	f.lineHeight = int(size * 1.2)
-}
-
-// BitmapFont wraps hajimehoshi's bitmapfont for crisp pixel-perfect rendering.
-type BitmapFont struct {
-	face  *text.GoXFace
-	scale float64
-}
-
-// NewBitmapFont creates a crisp bitmap font scaled 2x (24px effective).
-func NewBitmapFont() *BitmapFont {
-	return &BitmapFont{
-		face:  text.NewGoXFace(bitmapfont.Face),
-		scale: 2.0,
-	}
-}
-
-// Draw renders text at the specified position.
-func (f *BitmapFont) Draw(target *ebiten.Image, str string, x, y int, c color.Color) {
-	op := &text.DrawOptions{}
-	op.GeoM.Scale(f.scale, f.scale)
-	op.GeoM.Translate(float64(x), float64(y))
-	op.ColorScale.ScaleWithColor(c)
-	text.Draw(target, str, f.face, op)
-}
-
-// Width returns the width of the text in pixels.
-func (f *BitmapFont) Width(str string) int {
-	w, _ := text.Measure(str, f.face, 12)
-	return int(w * f.scale)
-}
-
-// Height returns the line height in pixels.
-func (f *BitmapFont) Height() int {
-	return int(12 * f.scale)
 }

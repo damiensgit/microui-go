@@ -37,7 +37,6 @@ func init() {
 
 func debugLog(format string, args ...any) {
 	fmt.Fprintf(debugFile, format+"\n", args...)
-	debugFile.Sync()
 }
 
 // Model implements tea.Model for the microui TUI demo.
